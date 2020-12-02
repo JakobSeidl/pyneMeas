@@ -1,0 +1,31 @@
+import setuptools
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+
+
+setuptools.setup(
+    name="pyneMeas", # Replace with your own username
+    version="0.0.1",
+    author="Jakob Seidl",
+    author_email="jakob.seidl91@gmail.com",
+    description="A small example package",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/pypa/sampleproject",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    include_package_data=True,  #this should tell the package to include the non-python files defined in MANIFEST.in
+    python_requires='>=3.6',
+    install_requires = ['cycler','kiwisolver','numpy',
+                        'matplotlib','nidaqmx','pandas','Pillow',
+                        'pyparsing','python-dateutil','pytz','scipy','six']
+    
+)
+
+
+

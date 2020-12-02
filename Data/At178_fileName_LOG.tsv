@@ -1,0 +1,45 @@
+Measurement Log file for measurement >>> At178 <<< 
+Starting time and date: Thu Dec  3 10:36:26 2020
+
+Set/sweeped variables/instruments:
+Variable	Inst name	Inst type
+-----------------------------------
+timePoint	timeMachine	TimeMeas
+
+Measuring variables/instruments:
+Variable	Inst name	Inst type
+-----------------------------------
+measTime	timeMachine	TimeMeas
+measTime2	timeMachine2	TimeMeas
+
+User comments: Just a dummy measurement
+-----------------------------------
+Delay = 0.0s 
+Initial instrument configuration
+-----------------------------------
+{
+    "timeMachine-TimeMeas-1": {
+        "name": "timeMachine",
+        "timeStamp": 0.003155946731567383
+    },
+    "timeMachine2-TimeMeas-2": {
+        "name": "timeMachine2",
+        "timeStamp": 0.002949237823486328
+    }
+}
+-----------------------------------
+Ending time and date: Thu Dec  3 10:36:30 2020
+Time elapsed: 3.5052309036254883 seconds.
+Final instrument configuration: 
+-----------------------------------
+{
+    "timeMachine-TimeMeas-1": {
+        "name": "timeMachine",
+        "timeStamp": 0.003155946731567383
+    },
+    "timeMachine2-TimeMeas-2": {
+        "name": "timeMachine2",
+        "timeStamp": 0.002949237823486328
+    }
+}
+-----------------------------------
