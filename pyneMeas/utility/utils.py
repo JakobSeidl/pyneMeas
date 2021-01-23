@@ -24,6 +24,7 @@ def array(start,target,stepsize,upDown = False):
 
 def targetArray(targetList,stepsize):
     arrayList = []
+    stepsize = float(stepsize)
     for index, item in enumerate(targetList):
 
         if index == 0:
@@ -45,6 +46,37 @@ def fileDialog(initAd = "/"):
     fileName = fullPath[a+1:]
     return [basePath,fileName]
 
+def runTest():
+    import pyneMeas.Instruments as I
+    import pyneMeas.utility as U
+    T = I.TimeMeas()
+    Noi = I.LinearNoiseGenerator()
+    NoiSin = I.SineNoiseGenerator()
+
+    Dct = {}
+    Dct['basePath'] = "TempDat/"
+    Dct['fileName'] = 'fileName'
+
+    Dct['setters'] = {T: 'dummy'}
+
+    Dct['readers'] = {T: 'time',
+                      Noi: 'lin_noise',
+                      NoiSin: 'sine_noise',
+                      }
+
+    Dct['sweepArray'] = range(100)
+    df = U.sweep(
+        Dct,
+        delay=0.0,
+        plotVars=[('time', 'lin_noise'),
+                  ('time', 'sine_noise')
+                  ],
+        plotParams=[('o-', 'linear-linear')
+            , ('go-', 'linear-linear')
+                    ],
+        saveCounter=100,
+    )
+
 
 def sendEmail(targetAddress, measurementName):
     """
@@ -52,8 +84,8 @@ def sendEmail(targetAddress, measurementName):
 
     """
     import smtplib
-    sent_from = 'Christopher.PyNE@nanoelectronics.physics.unsw.edu.au'
-    password = 'p00dles18'
+    sent_from = 'enterEmail'
+    password = 'enter Password'
     subject = 'Measurement finished'
     body = 'Eureka, your measurement >>>' + measurementName + '<<< has just finished!'
     email_text = """\  

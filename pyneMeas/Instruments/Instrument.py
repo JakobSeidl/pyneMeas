@@ -1,6 +1,6 @@
 """
 VERSION 4.0
-@author: Jakob Seidl and Donny
+@author: Donny
 jakob.seidl@nanoelectronics.physics.unsw.edu.au
 """
 from collections import Iterable

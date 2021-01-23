@@ -15,21 +15,21 @@ import pandas as pd
 from itertools import product
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import warnings
 
 
 # Specify plotting options:
-#Plot style presets: e.g, 'fivethirtyeight' or 'ggplot'. More examples -> https://matplotlib.org/3.3.3/gallery/style_sheets/style_sheets_reference.html
-plt.style.use('seaborn')
-mpl.rcParams['axes.linewidth'] = 1.0    #  boxplot linewidth
-mpl.rcParams.update({'font.size': 11})  #  fontsize
+#Plot style presets: e.g, 'fivethirtyeight' or 'ggplot' or 'seaborn. More examples -> https://matplotlib.org/3.3.3/gallery/style_sheets/style_sheets_reference.html
+plt.style.use('ggplot')
+# mpl.rcParams['axes.linewidth'] = 1.0    #  boxplot linewidth
+# mpl.rcParams.update({'font.size': 11})  #  fontsize
 ########################################
 
 
 
-mpl.use('TkAgg') #This should be the default on windows I think, but on my mac it isnt
- #used to suppress the annoying matplotlib warning about singular axes
-warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib") #used to suppress the annoying matplotlib warning about singular axes.
+# mpl.use('TkAgg') #This should be the default on windows I think, but on my mac it isnt
+
 
 
 # For each input point:
@@ -44,12 +44,16 @@ def sweepAndSave(
                  extraInstruments = [],
                  saveEnable = True,
                  delay = 0.0,
-                 plotParams = None,
-                 plotString  = ['og','ob'], #linePlot: symbol (-; -- or o,s,^,>   plus a colour: 'r' red, 'g' green etc.
+                 plotVars = None,
+                 # plotString  = ['go--','ro-','bo--','o-'], #linePlot: symbol (-; -- or o,s,^,>   plus a colour: 'r' red, 'g' green etc.
                  comments = "No comments provided by user",
+                 plotParams = [('go--','linear-linear'),('ro-','linear-linear')]*10,
                  saveCounter = 10,
                  breakCondition = None,
-                 outputReceiver = None):
+                 plotCounter = 1,
+                 plotSize = (10,10),
+                 plotAlpha = 0.8,
+                    ):
 
     """sweepAndSave is the main function of this module and THE sweepfunction. It is the only function that the user actually calls himlself
     - all other functions provided here all called 'under the hood by sweepAndsave'. It can be subdivided into three parts:
@@ -58,13 +62,35 @@ def sweepAndSave(
     i.e., iterative process carried out over every single datapoint in the inputArray. This is: (I) set setter Instr to inputArray point, then Query all meas instruments,
     (II) append data to files and plots and (III) every N-th iteration (default =10), force the file to be written on disk.
     (3): Wrap-up: Write the final instrument parameters and data to file, save the plot as .png, close all file connections (good practice!)"""
+    # def unpackInputDict(inputDict):
+    #     keyList = ['basePath','fileName','inputHeaders','sweepArray',
+    #                'inputSetters','outputHeaders','outputReaders']
+    #     return [inputDict[key] for key in keyList]
     def unpackInputDict(inputDict):
-        keyList = ['basePath','fileName','inputHeaders','sweepArray',
-                   'inputSetters','outputHeaders','outputReaders']
+        keyList = ['basePath','fileName','setters','sweepArray',
+                   'readers']
         return [inputDict[key] for key in keyList]
 
-    basePath,fileName,inputHeaders,inputPoints, inputSetters,outputHeaders, outputReaders = unpackInputDict(inputDict)
-    ######################################################################## Part(1) ########################################################################
+    def instrumentsHeadersfromDict(inputDict):
+        instruments, headers = [], []
+        for key, item in inputDict.items():
+            instruments.append(key)
+            if isinstance(item, list) or isinstance(item, tuple):
+                for i in item:
+                    headers.append(i)
+            else:
+                headers.append(item)
+        return (instruments, headers)
+
+    inputDict = checkInputDict(inputDict)
+    # basePath,fileName,inputHeaders,inputPoints, inputSetters,outputHeaders, outputReaders = unpackInputDict(inputDict)
+    basePath, fileName, setters, inputPoints, readers = unpackInputDict(inputDict)
+    inputSetters,inputHeaders = instrumentsHeadersfromDict(setters)
+    outputReaders,outputHeaders = instrumentsHeadersfromDict(readers)
+
+    lenInputList = len(inputPoints)
+
+    ######################################################################## Part(1)
     #########################################################################################################################################################
     #Turn input array into itertools.product if it isnt already. Since our sweepArray is usually a 1D array anyway, this is usually not necessary and is more of a relic than a feature:
     if (type(inputPoints) == product):
@@ -74,20 +100,35 @@ def sweepAndSave(
     else:
         pass
 
-    #Check if the plotting parameters ('plotParams') exist in in- and outputHeaders:
-    checkPlotHeaders(inputHeaders,outputHeaders,plotParams)
+
+
+
+    # checkPlotHeaders(inputHeaders,outputHeaders,plotVars)
+    #Check if the plotting parameters ('plotVars') exist in in- and outputHeaders:
+
+    inputHeaders = flatten(inputHeaders);outputHeaders = flatten(outputHeaders); #Make sure we have simple lists, not lists within lists etc..
+    allHeaders = inputHeaders + outputHeaders
+
+    ### New breakCond Stuff ####
+    if breakCondition != None and len(breakCondition) == 3:
+        breakIndex =  outputHeaders.index(breakCondition[0])
+    else: breakIndex = None
 
     if(saveEnable):
         ID.increaseID()
         fileName = str(ID.readCurrentSetup()) + str(ID.readCurrentID()) + "_" + fileName
         startTime = time.time() # Start time
 
-        # TODO: this is slightly different for Adams version 3.1, let's see if it still works.
+
+
         # Make a copy of the initial configuration of the instruments
-        instruments = set(filter(
-            lambda i: issubclass(type(i), Instrument.Instrument),
-            inputSetters + outputReaders + extraInstruments
-        ))
+        # instruments = set(filter(  # Old donny version, let's see when we run into problems with the simple one below!
+        #     lambda i: issubclass(type(i), Instrument.Instrument),
+        #     inputSetters + outputReaders + extraInstruments
+        # ))
+        instruments  = set(inputSetters + outputReaders + extraInstruments)
+
+
 
         config = {}
         for instrument in instruments: #This goes through the list of all instruments and queries all options that have a associated 'get()' method. E.g., 'sourceMode' for the Keithely2401
@@ -138,41 +179,47 @@ def sweepAndSave(
         ##############          Prepare Plotting: ###############
 
         measurementName = str(ID.readCurrentSetup()) + str(ID.readCurrentID()) # returns e.g. At104
-        inputHeaders = flatten(inputHeaders);outputHeaders = flatten(outputHeaders); #Make sure we have simple lists, not lists within lists etc..
 
-        allHeaders = inputHeaders + outputHeaders
         Xvalues1 = [];Yvalues1 = [];Xvalues2 = [];Yvalues2 = [] #Generate empty lists of X and Y Data. This is used later in the plotting routine.
+        if plotVars is not None:
+            ############## Initialize the plot. Actual plotting happens within receiver() within save() ###############
+            plt.ion()  # this is the call to matplotlib that allows dynamic plotting
+            fig = plt.figure(figsize = plotSize)
 
-        ############## Initialize the plot. Actual plotting happens within receiver() within save() ###############
-        if plotParams != None and len(plotParams) == 2:  # If the user specifies one pair of plot parameters:
-            allHeaders = inputHeaders + outputHeaders
-            Xindex1 =  allHeaders.index(plotParams[0])
-            Yindex1  = allHeaders.index(plotParams[1])
+            lineObjs = []
+            axObjs = []
+            nSubplot = len(plotVars)
 
-            mainFig = plt.figure(figsize=(8,8))
-            ax1 = mainFig.add_subplot(111)
-            line1, = ax1.plot(0,0,plotString[0])
-            plt.ylabel(str(allHeaders[Yindex1]))
-            plt.xlabel(str(allHeaders[Xindex1]))
-            plt.title(measurementName)
-            plt.show()
+            # for i in range(1,nSubplot+1):
+            nRows = int(np.ceil(np.sqrt(nSubplot)))
+            nCols = int(np.floor(np.sqrt(nSubplot)))
+            if nRows*nCols < nSubplot:
+                nRows += 1
 
-        if plotParams != None and len(plotParams) == 4:  # If the user specifies two pairs of plot parameters:
-            Xindex1,Yindex1,Xindex2,Yindex2 = (allHeaders.index(plotParams[i])
-                                               for i in range(4))
+            for index,(xyAxisName,plotParamTuple) in enumerate(zip(plotVars,plotParams)):
+                xAxisName,yAxisName = xyAxisName
+                plotString, axisString = plotParamTuple
+                subplotIndex = nRows*100+nCols*10+index+1
+                axObj = fig.add_subplot(subplotIndex)
 
-            mainFig = plt.figure(figsize=(10,8))
+                # create a variable for the line so we can later update it (in the receiver)
+                line, = axObj.plot(0.01, 0.02, plotString, alpha = plotAlpha)
 
-            ax1 = mainFig.add_subplot(211)
-            plt.ylabel(str(allHeaders[Yindex1]))
-            plt.xlabel(str(allHeaders[Xindex1]))
-            line1, = ax1.plot(0,0,plotString[0])
-            plt.title(measurementName)
+                xScale = axisString.split('-')[0]
+                yScale = axisString.split('-')[1]
+                axObj.set_xscale(xScale)
+                axObj.set_yscale(yScale)
 
-            ax2 = mainFig.add_subplot(212)
-            plt.ylabel(str(allHeaders[Yindex2]))
-            plt.xlabel(str(allHeaders[Xindex2]))
-            line2, = ax2.plot(0,0, plotString[1] if (len(plotString) == 2) else plotString[0]) # if user provides only one plotstring use first.
+                # update plot label/title
+                if plotVars !=None and len(plotVars) == nSubplot:
+                    plt.ylabel(yAxisName)
+                    plt.xlabel(xAxisName)
+                if index == 0:
+                    plt.title(f'{measurementName}')
+
+                lineObjs.append(line)
+                axObjs.append(axObj)
+            plt.subplots_adjust(left=0.125, right=0.94, bottom=0.1, top=0.93, wspace=0.5, hspace=0.5)
             plt.show()
         ############### END initialize plot ###############################
 
@@ -188,10 +235,10 @@ def sweepAndSave(
             #and append it to your python dictionary of results (used for export as .mat file in the end). 2) It updates the current plot with the new data.
 
         ##############  Definition of receiver() ###############################
-        def receiver(inputPoint, outputPoint,counter):
+        def receiver(inputPoint, outputPoint,counter,lenInputList,forceSave = False, forcePlot = False,):
 
-            checkPointMatchesHeaders(inputPoint, inputHeaders)
-            checkPointMatchesHeaders(outputPoint, outputHeaders)
+            # checkPointMatchesHeaders(inputPoint, inputHeaders)
+            # checkPointMatchesHeaders(outputPoint, outputHeaders)
 
             for value, header in zip(flatten(inputPoint), flatten(inputHeaders)):
                 pointsDict[header].append(value)
@@ -201,59 +248,47 @@ def sweepAndSave(
             tsv.write("\t".join(map(str, flatten(inputPoint))) + "\t") #takes the input points, 'flattens' the list (aka gets rid of unecessary lists in lists) turns them into strings and writes them separated by a tab \t in the tsv file.
             tsv.write("\t".join(map(str, flatten(outputPoint))) + "\n")
 
+            progressBar(counter, lenInputList, barLength=20)
             #these force saving commands should probably only be executed every tenth iteration or so to speed things up.
-            if counter%saveCounter == 0:
+            if (counter%saveCounter == 0 or forceSave):
                 tsv.flush()   #These two commands force the tsv file and .mat file to be saved to disk. Otherwise the file will be lost when killing the program
                 os.fsync(tsv.fileno())
                 sio.savemat(basePath +fileName + '.mat', pointsDict)
-            #Do the actual Plotting:
-            if plotParams != None and len(plotParams) ==2: # If the user specified ONE PAIR of variables he wants plotted, update those.
-                points = flatten(inputPoint)+flatten(outputPoint)
-                Xvalues1.append(points[Xindex1])
-                Yvalues1.append(points[Yindex1])
-                line1.set_ydata(Yvalues1)
-                line1.set_xdata(Xvalues1)
 
-                mainFig.canvas.draw()
-                mainFig.canvas.flush_events()
-#                if counter%3 ==0:
-                try: #Introduced this since sometimes 'NaNs' or other chunk data may impede setting the axis limits properly
-                    ax1.set_xlim(min(Xvalues1),max(Xvalues1))
-                    ax1.set_ylim(min(Yvalues1),max(Yvalues1))
-                except:
-                    pass
+            if plotVars is not None:
+                xyDatSet = [(pointsDict[p1],pointsDict[p2]) for p1,p2 in plotVars]
+                #Do the actual Plotting:
+                if (counter % plotCounter == 0 or forcePlot):
+                    for lineOb, axObj, xyTuple in zip(lineObjs, axObjs, xyDatSet):
+                        x, y = xyTuple
+                        lineOb.set_ydata(y)
+                        lineOb.set_xdata(x)
 
-            if plotParams != None and len(plotParams) ==4: # If the user specified TWO PAIRS of variables he wants plotted, update those.
-                points = flatten(inputPoint)+flatten(outputPoint)
+                        stdY = np.std(y)
+                        stdX = np.std(x) / 4
+                        try: #Introduced this since sometimes 'NaNs' or other chunk data may impede setting the axis limits properly
+                            with warnings.catch_warnings():  #used to suppress the annoying matplotlib warning about singular axe
+                                warnings.simplefilter("ignore")
+                                axObj.set_ylim([np.min(y) - stdY, np.max(y) + stdY])
+                                axObj.set_xlim([np.min(x) - stdX, np.max(x) + stdX])
+                        except:
+                            pass
+                        # axObj.set_ylim([np.min(y) - stdY, np.max(y) + stdY])
+                        # axObj.set_xlim([np.min(x) - stdX, np.max(x) + stdX])
 
-                # append the current values to the pre-existing lists of X, and Y-values
-                for val, index in zip([Xvalues1,Yvalues1,Xvalues2,Yvalues2],
-                                               [Xindex1,Yindex1,Xindex2,Yindex2]):
-                    val.append(points[index])
-
-                # Update the plot object with the updated x,y val lists
-                line1.set_ydata(Yvalues1);line1.set_xdata(Xvalues1)
-                line2.set_ydata(Yvalues2);line2.set_xdata(Xvalues2)
-
-                # Set the x,y limits with regards to the new x,y data
-                try: #Introduced this since sometimes 'NaNs' or other bad data may impede setting the axis limits properly
-                    ax1.set_xlim(min(Xvalues1),max(Xvalues1));
-                    ax1.set_ylim(min(Yvalues1),max(Yvalues1))
-                    ax2.set_xlim(min(Xvalues2),max(Xvalues2));
-                    ax2.set_ylim(min(Yvalues2),max(Yvalues2))
-
-                except:
-                    pass
-                mainFig.canvas.draw() #Those two commands force the plot to actually update
-                mainFig.canvas.flush_events()
+                    #fig.canvas.draw()
+                    #fig.canvas.flush_events()
+                    plt.pause(0.00001)
                 ############## END Definition of receiver() ###############################
+
 
             #if outputReceiver: #we dont really use that ever, ignore. This is a potential future interface if the user wants to do more with his data for each iteration
             #    outputReceiver(inputPoint, outputPoint)
-            ##############  END Definition of receiver() ###############################   
+            ##############  END Definition of receiver() ###############################
 
         #sweep() does the actual sweep and calls receiver() defined just above! sweep() is defined just below, outside of the sweepAndSave() definition
-        sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition)
+
+        sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition,breakIndex,lenInputList) # !!!! BREAK !!!!
 
 
 
@@ -270,21 +305,22 @@ def sweepAndSave(
         tsv.close()
         sio.savemat(basePath +fileName + '.mat', pointsDict)
 
+        elapsedTime = time.time()-startTime
         log = open(basePath +fileName +"_LOG"+ ".tsv", "a")
         log.write("Ending time and date: "+time.asctime(time.localtime(time.time()))+"\n")
-        log.write("Time elapsed: "+str(time.time()-startTime)+" seconds." +"\n")
+        log.write("Time elapsed: "+str(elapsedTime)+" seconds." +"\n")
         log.write("Final instrument configuration: \n")
         log.write("-----------------------------------\n")
         log.write(json.dumps(config, indent = 4, sort_keys = True)) #Writes all the instrument parameters in indeted json format
         log.write("\n-----------------------------------\n")
         log.close()
-        if plotParams != None:
+
+        if plotVars is not None:
             plt.savefig(basePath +fileName+'.png') #Save Plot as .png as additional feature (only if plotting parameters were specified
-
+            plt.close('all')
     elif(not saveEnable): #This elif branch is basically never executed and can be ignored. We just assume that the user wants to sav and plot his data anyway.
-        sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition) #This does the actual sweep (without saving)!
-
-
+        sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition,lenInputList) #This does the actual sweep (without saving)!
+    print(f'/>>>>>> Finished measurement {measurementName:} | Duration: {elapsedTime:.1f} seconds = {elapsedTime/60:.1f} min  <<<<<<<')
     return pd.DataFrame.from_dict(pointsDict)
 
 
@@ -299,14 +335,10 @@ def sweepAndSave(
 
 
 ##################################################################
-def sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition):
+def sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition,breakIndex,lenInputList):
     """sweep() defines the 'actual sweep',i.e.,, we define what is done for each 'inputPoint' of the array we want to sweep over. """
     prevPoint = None
     counter = 0
-#    running = True
-#    if breakCondition ==None:
-#        breakCondition = [outputReaders[0],-float("inf"),float("inf")]
-#    print breakCondition
 
     # Actual loop over all points in inputArray:
     for inputPoint in inputPoints:
@@ -342,14 +374,33 @@ def sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakConditio
                         tempRes = reader.get(type(reader).defaultInput)
                         outputPoint.append(tempRes)
 
-                # Block below calls the receiver. In the sweepAndSave function, we define a receiver which we then hand over to the save() function called there.
-                # So in normal use, this is used to plot and write the data to file. However, in principle you could pass ANY function to it and you could do other stuff with your data.
-                receiver(inputPoint, outputPoint,counter)
-                counter = counter+1
+
+
+                ### New breakCond Stuff ####
+
+
+                # lenInputList = len([*inputPoints])
+                def checkPointBreaks():
+                    if breakCondition[1] == '>':
+                        return (flatten(outputPoint)[breakIndex] < breakCondition[2])
+                    elif breakCondition[1] == '<':
+                        return (flatten(outputPoint)[breakIndex] > breakCondition[2])
+
+                #  !!!! BREAK !!!!!!!! BREAK !!!!!!!! BREAK !!!!
+                if (breakIndex == None or checkPointBreaks()):
+                    receiver(inputPoint, outputPoint,counter,lenInputList)
+                    counter = counter+1
+                else:
+                    print(f"Terminated measurement: Reached breakCondition: \nMeasured variable: {breakCondition[0]} reached {flatten(outputPoint)[breakIndex]} which is {breakCondition[1]} {breakCondition[2]}")
+                    # receiver(inputPoint, outputPoint,counter,forceSave = True, forcePlot = True)
+                    break
+    receiver(inputPoint, outputPoint, counter,lenInputList, forceSave=True, forcePlot=True,)
+
+
 
 
 # sweepNoSave is not really used ever
-def sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition): #Since by default the 'saveEnable' option is True, this funciton is barely ever called.
+def sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition,lenInputList): #Since by default the 'saveEnable' option is True, this funciton is barely ever called.
     prevPoint = None
     for inputPoint in inputPoints:
         if len(inputPoint) != len(inputSetters):
@@ -381,6 +432,110 @@ def sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition): 
 
 #Helper functions from here on:
 
+# def checkInputDict(inputDict):
+#     requiredKeys = {'basePath','fileName','inputHeaders',
+#                     'sweepArray','inputSetters','outputHeaders','outputReaders'}
+#     inputArgs = set(inputDict.keys())
+#
+#
+#     # 5. inputHeaders
+#     if isinstance(inputDict['inputHeaders'],str):
+#         if not ((" " in inputDict['inputHeaders']) or (inputDict['inputHeaders'][0].isdigit())):
+#             inputDict['inputHeaders'] = [inputDict['inputHeaders']]
+#         else: raise ValueError(f"inputHeaders attribute must be one string, or list of strings. NO empty spaces or leading digits are allowed to preserve Matlab compatibility.\nYour entered '{inputDict['inputHeaders']}'.")
+#     elif isinstance(inputDict['inputHeaders'],list):
+#         for header in inputDict['inputHeaders']:
+#             if (not isinstance(header,str) or (" " in header.strip()) or (header[0].isdigit()) ):
+#                 raise ValueError(f"inputHeaders attribute must be one string, or list of strings. NO empty spaces or leading digits are allowed to preserve Matlab compatibility.\nYour entered {inputDict['inputHeaders']}.")
+#     else: raise ValueError(f"inputHeaders attribute must be one string, or list of strings. You entered: {inputDict['inputHeaders']} of type: {type(inputDict['inputHeaders']).__name__}")
+
+#
+#     # 7. inputSetters
+#     if type(inputDict['inputSetters']) != list:
+#         if 'Instruments' not in str(type(inputDict['inputSetters'])):
+#             raise ValueError(f"inputSetters attribute needs to be single instrument object or list of instrument objects (when more than one setter is defined).\nYour entered: {inputDict['inputSetters']}")
+#         else: inputDict['inputSetters'] = [inputDict['inputSetters']]
+#     else:
+#         for listElement in inputDict['inputSetters']:
+#             if 'Instruments' not in str(type(listElement)):
+#                 raise ValueError(
+#                     f"inputSetters attribute needs to be single instrument object or list of instrument objects (when more than one setter is defined).\nYou entered {listElement}, which is of type {type(listElement).__name__}")
+#
+#
+#     # 8. outputHeaders
+#     if isinstance(inputDict['outputHeaders'],str):
+#         if not ((" " in inputDict['outputHeaders']) or (inputDict['outputHeaders'][0].isdigit())):
+#             inputDict['outputHeaders'] = [inputDict['outputHeaders']]
+#         else: raise ValueError(f"outputHeaders attribute must be one string, or list of strings. NO empty spaces or leading digits are allowed to preserve Matlab compatibility.\nYour entered '{inputDict['outputHeaders']}'.")
+#     elif isinstance(inputDict['outputHeaders'],list):
+#         for header in inputDict['outputHeaders']:
+#             if (not isinstance(header,str) or (" " in header.strip()) or (header[0].isdigit()) ):
+#                 raise ValueError(f"outputHeaders attribute must be one string, or list of strings. NO empty spaces or leading digits are allowed to preserve Matlab compatibility.\nYour entered {inputDict['outputHeaders']}.")
+#     else: raise ValueError(f"outputHeaders attribute must be one string, or list of strings. You entered: {inputDict['outputHeaders']} of type: {type(inputDict['outputHeaders']).__name__}")
+#
+#     # 9. outputReaders
+#     if type(inputDict['outputReaders']) != list:
+#         if 'Instruments' not in str(type(inputDict['outputReaders'])):
+#             raise ValueError(f"outputReaders attribute needs to be single instrument object or list of instrument objects (when more than one setter is defined).\nYour entered: {inputDict['outputReaders']}")
+#         else: inputDict['outputReaders'] = [inputDict['outputReaders']]
+#     else:
+#         for listElement in inputDict['outputReaders']:
+#             if 'Instruments' not in str(type(listElement)):
+#                 raise ValueError(
+#                     f"outputReaders attribute needs to be single instrument object or list of instrument objects (when more than one setter is defined).\nYou entered {listElement}, which is of type {type(listElement).__name__}")
+#
+#     # 10. Make sure
+#
+#     return inputDict
+
+
+def checkInputDict(inputDict):
+    requiredKeys = {'basePath','fileName','setters',
+                    'sweepArray','readers'}
+    inputArgs = set(inputDict.keys())
+
+    missingInputs = requiredKeys.difference(inputArgs)
+    unusedInputs = inputArgs.difference(requiredKeys)
+
+    # 1. Assert we have all essential input keys
+    assert len(missingInputs) == 0, f"\n Please define the following MISSING ARGUMENTS in your input dictionary: \n {[key for key in missingInputs]}"
+
+    # 2. Letting user know some of his inputs will be ignored. Happens when extra dict keys are used.
+    if len(unusedInputs) !=0:
+        warnings.warn(f"Warning: The following arguments in your input dictionary will be ignored: \n {[arg for arg in unusedInputs]} ")
+
+    #  3. basePath
+    assert isinstance(inputDict['basePath'],str), f"The 'basePath' attribute of the input dictionary needs to be a string! You entered {inputDict['basePath']}."
+    if os.path.exists(inputDict['basePath']):
+        print(f'Saving data to existing directory: {inputDict["basePath"]}')
+    else:
+        os.mkdir(inputDict['basePath'])
+        print(f'Created data storage directory: {inputDict["basePath"]}')
+    if inputDict['basePath'][-1] != '/': # When the user specifies a path not ending on /, we still want to save on the lowest subfolder. -> Add /
+        inputDict['basePath'] = inputDict['basePath'] + '/'
+
+    #  4. fileName
+    assert isinstance(inputDict['fileName'],str), f"The 'fileName' attribute of the input dictionary needs to be a string! You entered {inputDict['fileName']}."
+
+    # 5. setters
+    if not isinstance(inputDict['setters'],dict):
+        raise  ValueError(f'Your input dictionary with key "setters" mus be a dictionary itself. You assigned: {inputDict["setters"]} of type: {type(inputDict["setters"]).__name__}\n Please assign the instrument as "key" and the corresponding variable name(s) as values')
+
+    # 6. sweepArray
+    assert type(inputDict['sweepArray']) in [range,list,np.ndarray],f"sweepArray needs to be Python list, numpy.array or a range object. You supplied data of type: {type(inputDict['sweepArray']).__name__}"
+    if type(inputDict['sweepArray']) == range:
+        inputDict['sweepArray'] = [*inputDict['sweepArray']] # Unpack range into a list
+
+    # 8. readers
+    if not isinstance(inputDict['readers'],dict):
+        raise ValueError(
+            f'Your input dictionary with key "readers" mus be a dictionary itself. You assigned: {inputDict["readers"]} of type: {type(inputDict["readers"]).__name__}\n Please assign the instrument as "key" and the corresponding variable name(s) as values')
+
+    # 10. Make sure
+
+    return inputDict
+
+
 # Checks if val is iterable, but not a string
 def isIterable(val):
     return isinstance(val, Iterable) and not isinstance(val, str)
@@ -409,14 +564,20 @@ def checkPointMatchesHeaders(point, headers): # I added heaps of flatten() in he
         else:
             raise ValueError("Point {} does not have same length as header {}".format(flatten(point), flatten(headers)))
 
-def checkPlotHeaders(inputHeaders,outputHeaders,plotParams):
-    if plotParams == None:
+def checkPlotHeaders(inputHeaders,outputHeaders,plotVars):
+    if plotVars == None:
         return
-    if (len(plotParams) ==2 and plotParams[0] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotParams[1] in (flatten(inputHeaders)+flatten(outputHeaders))):
+    if (len(plotVars) ==2 and plotVars[0] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotVars[1] in (flatten(inputHeaders)+flatten(outputHeaders))):
         return 1
-    elif (len(plotParams) ==4 and plotParams[0] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotParams[1] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotParams[2] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotParams[3] in (flatten(inputHeaders)+flatten(outputHeaders))):
+    elif (len(plotVars) ==4 and plotVars[0] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotVars[1] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotVars[2] in (flatten(inputHeaders)+flatten(outputHeaders)) and plotVars[3] in (flatten(inputHeaders)+flatten(outputHeaders))):
         return 2
     else:
-        raise ValueError("{} does either not have the right format (either two or 4 parameters) or one of the given values is not found in input or output Headers".format(plotParams))
+        raise ValueError("{} does either not have the right format (either two or 4 parameters) or one of the given values is not found in input or output Headers".format(plotVars))
 
 
+def progressBar(current, total, barLength = 20):
+    percent = float(current) * 100 / total
+    arrow   = '-' * int(percent/100 * barLength - 1) + '>'
+    spaces  = ' ' * (barLength - len(arrow))
+
+    print('Progress: [%s%s] %d %%' % (arrow, spaces, percent), end='\r')
