@@ -87,6 +87,8 @@ class Instrument(object):
                 args = (args,)
             self.set(option, *args)
 
+    def read(self):
+        return self.get(self.defaultInput)
 # Having a "totalOptions" variable lets us assign a total order to the options,
 # by giving each option an unique number. This way we can ensure an order to
 # setting the options when setting multiple options at once, since some options
@@ -134,7 +136,8 @@ def closeInstruments(instrumentList1,instrumentList2=None):
             instrument.close()
         except:
             continue
-        
+
+
 # Defining a new instrument
 # ------------------------
 # import Instrument

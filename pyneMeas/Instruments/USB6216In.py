@@ -1,8 +1,6 @@
 """
-Brought to v3.1.0 on Fri Oct 10 2019 by APM
-
 @author: Adam Micolich
-
+Updated by Jakob Seidl
 This module does the input handling for the USB-6216, which is effectively a pair of analog outputs
 and a set of 8 analog inputs. The output handling is done by a separate .py. 
 """

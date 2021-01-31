@@ -1,4 +1,4 @@
-# pyneMeas documentation 
+# pyneMeas documentation (v0.0.2)
 
 A package for simple electrical measurements using the National Instruments (NI) VISA standard.
 Developed by Jakob Seidl and coworkers at the Nanoelectronics group at the University of New South Wales, Sydney.
@@ -28,7 +28,7 @@ Case A: from the online repository PyPi:
 
 Case B: from a local pyneMeas folder on your PC:
 
-`$ pip install -e local/Path/pyneMeas/.`   the -e flag allows to make changes to the original files in the folder,
+`$ pip install -e local/Path/pyneMeas/.`   the `-e` flag allows to make changes to the original files in the folder,
 useful if you want to tweak the code while working.
 You can download the sourcecode (.zip) from github under
 https://github.com/JakobSeidl/pyneMeas
@@ -36,7 +36,7 @@ https://github.com/JakobSeidl/pyneMeas
 Install the package in a virtual environment (venv) or in your global Python 3 installation, whatever works best for your use-case.
 
 Check if the installation was successful:\
-`$ pip list` should return a list that contains of packages that should contain
+`$ pip list` returns a list of packages that should contain
 ```$ pip  20.3
 pyneMeas           0.0.2    
 ```
@@ -80,9 +80,10 @@ Out: Created data storage directory: TempDat/
 ```
 
 Setting up any basic measurement requires three steps: 
-1. Setting up all required instruments and configuring them
-2. Defining the sweep-array and designating which instrument should sweep a variable and which instrument(s) should just read/measure.
-3. Call the sweep function 'sweep()' from pyneMeas.utility using the Instrument parameters defined in 2.
+1. Setting up all required instruments and configuring them (see A.4)
+2. Defining the sweep-array and designating which instrument should sweep a variable and which instrument(s)
+ should just read/measure (see A.5).
+3. Call the sweep function 'sweep()' from pyneMeas.utility using the Instrument parameters defined in 2, see A.5.
 
 ### A.4 Initializing instruments:
 We reccommend using an IDE such as PyCharm that supports code completion. E.g., type 'I.' 
@@ -96,8 +97,8 @@ Most instruments have internal options that can be set before the measurement. E
 unit can be set to source voltage (and measure its output current) or to source a current instead. Every instrument has a set() and  setOptions() method:
 E.g. 
 ```
-myKeithley.set('name','myKeithleyInstrumentName) # Every instrument can have a unique 'name'
-myKeithley.setOptions({'sourceMode':'voltage, # sourcing voltage
+>>> myKeithley.set('name','myKeithleyInstrumentName) # Every instrument can have a unique 'name'
+>>> myKeithley.setOptions({'sourceMode':'voltage, # sourcing voltage
                       'sourceRange':20})      # Using high source range of up to 20 Volts
 ```
 For a list of all instrument options and possible values, see [XX].
@@ -114,9 +115,11 @@ Here we use the `targetArray()` function, but standard lists or numpy.arrays can
 In the last step, we call the `sweep()` function with the required `Dct` parameter and two optional parameters, `delay` and `plotVars`. 
 Note that the name `Dct` of the dictionary may be changed but the keywords such as `'setter'` and `'sweepArray'` need to be exactly used as displayed here.
 ```
+myScript.py
+-----------
 Dct = {} # Define empty dictionary as container
 Dct['basePath'] = "Data/" # Relative to your current working directory
-Dct['fileName'] = 'SampleA' # Sets the file name under which data will be save and logged.
+Dct['fileName'] = 'SampleA' # Sets the file name under which data will be saved and logged.
 
 Dct['setters'] = {myKeithley:    'V_SD'} # Set the variable called 'V_SD' with our 'myKeithley' object
 Dct['readers'] = {myKeithley:    'I_SD'} # Measure the variable called 'I_SD' with our 'myKeithley' object
@@ -138,49 +141,203 @@ This should open a live-plot that shows `'I_SD'` vs. `'V_SD'`. The data is saved
   from being overwritten even when the user uses the same `fileName` repeatedly. The `sweep()` function 
   returns a `pandas.DataFrame`, here assigned to `df`, that holds the acquired data with column labels corresponding to the variable names provided.
   This can be useful if the user wants to use the acquired data immediately during the measurement routine.
+```
+>>> df
+Out:
+      V_SD      I_SD     
+0        .         .    
+1        .         .  
+2        .         .   
+..     ...       ... 
 
+>>> df.plot(x = 'V_SD', y ='I_SD') # A simple way of plotting the data                                                        
+```
 ## B   Example scripts/ Tutorials
 ### B.1 Two variables: A gate-sweep measurement
 ```
-[...]
-df = U.sweep(Dct,                          # call sweep function and provide the Dct dictionary defined
-             delay=0.2,                    # seconds wait time in between points
-             plotVars = [('V_SD','I_SD')]) # plot 'I_SD' (y-axis) over 'V_SD (x-axis)'      
-                                                                   
+gateSweepScript.py
+------------------
+
+Vgate_Keithley = I.Keithley2401(10)
+VBias_Keithley = I.Keithley2401(11)
+
+[Set options either manually or with .setOptions({'key':argument}) method]
+
+Dct = {} # Define empty dictionary as container
+Dct['basePath'] = "Data/" 
+
+
+Dct['setters'] = {Vgate_Keithley:    'V_G'} 
+
+Dct['readers'] = {  VBias_Keithley:    'I_SD',
+                    Vgate_Keithley:    'I_LeakGate'} 
+
+
+gateLow = -1; gateHigh = 1.5
+Dct['sweepArray'] = U.targetArray([0, gateLow, gateHigh, 0], stepsize = 0.05) 
+          
+sourceDrainBiases = [0.05, 0.1, 0.5] #  volt
+
+for bias in sourceDrainBiases:
+    
+    Dct['fileName'] = f'SampleA_{bias}_volt' # data for each bias will have the bias in the filename for convenience, e.g. SampleA_0.5_volt'
+    
+    VBias_Keithley.goTo(bias,0.01,0.2) # Go to the desired bias, then execute gate sweep.  
+    U.sweep(Dct, delay=0.2, plotVars = [('V_G','I_SD'), ('V_G','I_LeakGate')])
+                            
+                                                     
 ```
 ### B.2 Measure instruments over time
 ```
-[...]
-df = U.sweep(Dct,                          # call sweep function and provide the Dct dictionary defined
-             delay=0.2,                    # seconds wait time in between points
-             plotVars = [('V_SD','I_SD')]) # plot 'I_SD' (y-axis) over 'V_SD (x-axis)'      
-                                                                   
+timeMeasScript.py
+-----------------
+
+myKeith = I.Keithley2401(11)
+myTimeInst = I.TimeMeas()  # virtual instrument
+
+[Set myKeith options if desired ...]
+                                   
+Dct['basePath'] = "Data/" 
+Dct['fileName'] = 'SampleB_currOverTime'
+
+Dct['setters'] = {myTimeInst:    'dummyPoints'} 
+
+Dct['readers'] = {  myKeith:    'I_d',
+                    myTimeInst:    'time'}    
+
+Dct['sweepArray'] = range(100) # measure over 100 datapoints
+
+U.sweep(Dct, delay=0.2, # The delay here determines roughly how often we measure per unit time.
+        plotVars = [('time','I_d')],
+        breakCondition = ('time','>',50)) # optionally we can terminate the measurement after a certain time period if desired.
+
+                            
 ```
-### B.3 Simple measurements with the NIDaq
+### B.3 Simple I-V measurements with the NIDaq
 ```
-[...]
-df = U.sweep(Dct,                          # call sweep function and provide the Dct dictionary defined
-             delay=0.2,                    # seconds wait time in between points
-             plotVars = [('V_SD','I_SD')]) # plot 'I_SD' (y-axis) over 'V_SD (x-axis)'      
-                                                                   
+simpleNiDaQ.py
+--------------
+
+DaqIn = USB6216In(2) # Using Analog Input AI2
+DaqOut = USB6216Out(1) # Using Analog Output AO1
+
+myTime = TimeMeas()
+
+Dct = {} # Define empty dictionary as container
+Dct['basePath'] = "Data/" 
+Dct['fileName'] = 'SampleC_IV'
+
+
+Dct['setters'] = {DaqOut:    'V_SD'} 
+
+Dct['readers'] = {  DaqIn:    'I_SD',
+                    myTime:    'time'} 
+
+targetLow = 0; targetHigh = 1.5
+Dct['sweepArray'] = U.targetArray([targetLow, targetHigh, targetLow], stepsize = 0.01) 
+
+df = U.sweep(Dct, # No plotting and 'delay' here to speed up the nidaq aquisition.
+saveCounter = 100) # Only save data every 100th read to increase speed.
+                                                        
 ```
 ### B.4 Example using lock-in amplifiers
 ```
-[...]
-df = U.sweep(Dct,                          # call sweep function and provide the Dct dictionary defined
-             delay=0.2,                    # seconds wait time in between points
-             plotVars = [('V_SD','I_SD')]) # plot 'I_SD' (y-axis) over 'V_SD (x-axis)'      
-                                                                   
-```
+lockIn_HallScript.py
+--------------------
+lockIn_ISD = I.SRS830(8)
+lockIn_VSD = I.SRS830(10)
+lockIn_VHall = I.SRS830(11)  
+keith_Vg = I.Keithley2401(13)
+
+
+# You could set all these manually on the instrument,
+# except 'scaleFactor' and 'autoSensitivity'
+
+lockIn_ISD.setOptions({
+      'frequency':77, 
+      'amplitude':0.004,
+      'input':'I1',
+      'scaleFactor':1,
+      'phase':180,
+      'autoSensitivity':False })
+        
+
+[.. set other options as desired...]
+
+
+Dct = {} # Define empty dictionary as container
+Dct['basePath'] = "Data/" 
+Dct['fileName'] = 'SampleC_IV'
+
+myComments = """
+        Hall bar measurement at B = +2 T @ 4K
+        We measure the current through device with lockIn_ISD
+        and the voltage across the device with lockIn_VSD. The third lock in,
+        lockIn_VHall, measures the Hall voltage. We sweep the gate-voltage with 
+        a Keithley2400 (keith_Vg). """
+
+Dct['setters'] = {keith_Vg:    'V_g'} 
+
+Dct['readers'] = {  lockIn_ISD:    ['Isd_X','Isd_Y'],  # The lock-in puts out TWO read-values
+                    lockIn_VSD:    ['Vsd_X','Vsd_Y'],  # We put them together in brackets 
+                    lockIn_VH:    ['VHall_X','VHall_Y'],
+                    keith_Vg:    'I_gateLeak'          # Instruments that only yield single values
+            }                                          # don't need brackets.
+
+
+targetLow = 0; targetHigh = 1.5
+Dct['sweepArray'] = U.targetArray([targetLow, targetHigh, targetLow], stepsize = 0.01) 
+
+lockIn_ISD.goTo(2,0.2,0.2) # got to a excitation amplitude of 2 V (usually into a voltage divider)                                                             
+
+data = U.sweep(Dct,
+               plotVars = [('V_g','I_sd_X),
+                            ('V_g','V_Hall_X),
+                            ('V_g','VHall_Y)]),
+               plotParams = [('b-','linear-log'), # Sets the plot appearance and lin-log x-y scale
+                              ('go','linear-linear')  #linear-linear scale (default)
+                              ('ro--','linear-linear')],
+               comments = myComments
+               )
+```     
 ### B.5 Abruptly changing signals - sourcing step functions with SMU's
 ```
-[...]
-df = U.sweep(Dct,                          # call sweep function and provide the Dct dictionary defined
-             delay=0.2,                    # seconds wait time in between points
-             plotVars = [('V_SD','I_SD')]) # plot 'I_SD' (y-axis) over 'V_SD (x-axis)'      
-                                                                   
-```
 
+Vgate_Keithley = I.Keithley2401(10)
+VBias_Keithley = I.Keithley2401(11)
+myTime = TimeMeas()
+
+Dct = {} # Define empty dictionary as container
+Dct['basePath'] = "Data/" 
+Dct['fileName'] = 'SampleD_GateTransient'
+
+VgHigh = 0.5  # volt
+VgLow = -0.1 
+# Creates a Low-HIgh-Low-High square wave gate potential:  
+Dct['sweepArray'] = [VgLow]*50 + [VgHigh]*150 + [VgLow]*50 + [VgHigh]*150
+
+
+Dct['setters'] = {Vgate_Keithley:      'V_G'} 
+
+Dct['readers'] = {  VBias_Keithley:    'I_SD',
+                    Vgate_Keithley:    'I_LeakGate'
+                    myTime:            'time'} 
+
+df = U.sweep(Dct,
+        plotVars = [('time','I_SD'),
+                    ('time','V_G')]
+            )                                                      
+```
+### B.6 Reading current instrument setter status to dynamically define next sweeps
+```
+[... To be completeted soon]
+# Step 1 Gate-sweep that will be stopped by breakCondition once current drops below 1E-6 A:
+
+
+# Step 2: After breaking the measurement, you wish to drive the gate back up while measuring.
+current = mySetter.get('sourceLevel')
+                                                    
+```
 ## C   In-depth documentation on instruments and utility functions
 
 #### C.1 Optional parameters of the sweep() function
@@ -208,12 +365,113 @@ Can help speed up the measurement slightly. Default = 10
 
 `breakCondition` Tuple, `('Variable','comparisonOperator',Value)`. Allows to stop a measurement when a certain condition is met.
  `'Variable'` is compared against `Value` using `'comparisonOperator'`. 
-`'comparisonOperator'` can be `'<'` or `'>'` at the moment. Example: `'I_SD','>',1E-6)` will end the
+`'comparisonOperator'` can be `'<'` or `'>'` at the moment. Example: `breakCondition = ('I_SD','>',1E-6)` will end the
  measurement when `'I_SD'` reaches a value above 1 microampere.
  
 `extraInstruments` List of instrument objects, used to keep track of instruments that are not directly used as setter or reader but you still want to see logged in the .log file.
 
 `saveEnable` Boolean, Defines wheather saving the data is desired. Default = True
 
+---
 
+#### C.2 Keithley 2400 series
+##### These properties can be set, as well as queried with the get/set methods.
+`'outputEnable'`: Boolean, Turns instrument output on (True or 1) or off (False or 0). 
+`outputEnable = True` is required for instrument operation.
+Example: `>>> myKeithley.set('outputEnable',False)` 
+
+`'sourceMode'`, String, can be `'voltage'` or `'current'` for sourcing a voltage or current respectiveley.
+The instrument will also measure the flowing current (when sourcing `'voltage'`) or the resulting voltage (when sourcing a `'current'`).
+When a Keithley2400 instrument is created, it will internally check the current source mode of the instrument, so `'sourceMode'` can be set in hardware or software.
+
+`'sourceRange': ` Float, sets overall source range of instrument. Highest value you want to put out need to be below this limit.
+When sourcing `'voltage'`, possible limits are: ` (20,10,1,0.1,0.01,0.001)` (in volts). When sourcing 
+`'current'`, possible limits are: `(1,0.1,0.01,0.001,1E-4,1E-5,1E-6)`(in amperes). 
+
+`'name''` String, Optional unique name of the instrument to distinguish between various instruments of the same type.
+
+`'sourceLevel'`, Float, set method only. Directly sets the output (voltage or current) to the set value. We do not recommend using this directly, especially not for sensitive nanoscale samples.
+Use `myInstrument.goTo(target,stepSize,delay)` instead to slowly approach the desired setpoint.
+
+`'senseLevel'` Returns float, get method only. Returns the current voltage/current reading.
+
+`'senseRange'`, when sourcing `'voltage': (1.05E-4,1.05E-5,1.05E-6)` amperes.
+ OR when sourcing `'current': (21.0,2.1,0.21)` volts
+
+`compliance`, Float, Hard limit of highest current the instrument supplies when sourcing `'voltage'`
+or highest voltage when sourcing `'current'`. Must lie below the highest value the instrument can measure, see `'senseRange'`.
+
+`'scaleFactor'` Float, scales the measured values form the instrument. Defaults to 1 and does not usually have to be set. 
+
+---
+#### C.3 Keithley 2000 series
+`'senseMode'`, String, determines whether the instrument reads current or voltage as input. Can be `'voltage'` or `'current'`.
+
+`'senseRange'` Float, sets the input range. Allowed voltage ranges are: `(100E-3,1,10,100,1000) #  volts.`
+Allowed current ranges are: `(10E-3,100E-3,1,3) #  amps.`
+
+`'senseLevel'`, Returns float, get method only. Returns reading of input voltage/current.
+
+`'scaleFactor'` Float, scales the measured values form the instrument. Useful when current or voltage preamps are used and the output is read by the Keithley 2000. 
+
+---
+
+#### C.4 Keithley 6517A Electrometer
+
+`'zeroCheck'` Boolean, `True` enables zerocheck mode, which protects the instrument when not in use.
+ Needs to be disabled (`False`) before a measurement.
+ 
+`senseMode'`, String, determines whether the instrument reads current or voltage as input. Can be `'voltage'` or `'current'`.
+
+`'senseLevel'`, Returns float, get method only. Returns reading of input voltage/current.
+
+`'senseRange'` Float, when measuring current: `[20E-12,200E-12,2E-9,20E-9,200E-9,2E-6,20E-6,200E-6,2E-3,20E-3] # amperes.`
+When measuring voltage: `[2,20,200] #  volts.`
+
+
+`'autoRange'`, Boolean. When `True`, the instrument will try to adjust its `'senseLevel'` according to its input readings.
+
+`'NPLC'`, Float between 0.1 & 10. Sets the integration time during a measurement in 'power line cycles'. Default is 1. 
+Reduce this if your overall sweep velocity is too fast for the instrument to catch up, increase `'NPLC'` if you need slow, high precision readings of low currents. 
+
+---
+
+
+#### C.5 SRS830 lock-in amplifier
+
+For a detailed look at the lock-in specific parameters, please refer to the excellent manual of the SRS830
+https://www.thinksrs.com/downloads/pdfs/manuals/SR830m.pdf
+
+`'frequency':` Float between 0.1 Hz & 100 kHz. Sets the operation frequency.
+
+`'amplitude':` Float between 0.004 V & 5 V. Sets the root-mean-square amplitude of the sinusoidal
+output voltage of the amplifier.
+
+`'input'` String, can be `"A","A-B","I1" or "I2"` corresponding to a simple voltage measurement `"A"`, 
+a differential voltage measurement `"A-B"` or a current measurement with two different gains `"I1"/"I2""` 
+
+`'timeConst' :` Float or int. Sets the time constant of the lock-in amplifier. Allowed inputs are: `[10E-6,30E-6,100E-6,300E-6,1E-3,3E-3,10E-3,30E-3,100E-3,300E-3,1,3,10,30,100,300] #  seconds`
+
+`'phase'` Float, sets the phase-parameter of the lock-in amplifier in degrees. Can range from 0 to 360 degrees. 
+
+`'sweepParameter'` String, can be `"frequency" or "amplitude"`. When the lock-in is used as a setter in the sweep() function, 
+you can choose whether you want to sweep the RMS amplitude (default) or output frequency. Sweeping the frequency can e.g. be used to
+determine which drive frequency generates low noise background
+
+`'sourceLevel'`, Float, set method only. Directly sets the output amplitude (or frequency) to the set value. We do not recommend using this directly.
+Use `myInstrument.goTo(target,stepSize,delay)` instead to slowly approach the desired setpoint.
+
+`'senseLevel'` Tuple of floats `(Xreading, Yreading)`, get method only. Returns the X- and Y-component of the voltage/current reading.
+
+`'senseRange'` Float, `[1E-9,2E-9,5E-9,10E-9,20E-9,50E-9,100E-9,200E-9,500E-9,1E-6,2E-6,5E-6,10E-6,20E-6,50E-6,100E-6,200E-6,500E-6,1E-3,2E-3,5E-3,10E-3,20E-3,50E-3,100E-3,200E-3,500E-3,1] # volts`
+These voltage ranges directly correspond to current ranges, as written on the amplifier front panel.
+
+`'autoSensitivity'` Boolean. When `True`, the instrument will try to adjust its `'senseLevel'` according to its input readings. Note
+that this is not fully mature at the moment and should be properly tested prior to use in a real experiment. Defaults to `False.` 
+
+`'name'` String, Optional unique name of the instrument to distinguish between various instruments of the same type.
+
+#### C.6 YokogawaGS200
+[Following soon]
 ### Beyond the sweep() function: Using instruments in a custom for-loop
+[Following soon]

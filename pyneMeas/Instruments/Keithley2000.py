@@ -55,15 +55,15 @@ class Keithley2000(Instrument.Instrument):
     @Instrument.addOptionSetter("senseRange")   #Voltage sense ranges: 100mV, 1V, 10V,100V, 1000V
     def _setSenseRange(self, senseRange):
         mode = self.get("senseMode", forceCached = False)
-        if (mode == "voltage"): # when sourcing a voltage we usually sense current aka set its range
+        if (mode == "voltage"): #
             if float(senseRange) in (100E-3,1,10,100,1000):   
                 self.dev.write("SENS:VOLT:RANG "+str(senseRange))
             else:
                 raise ValueError(
-                    "\"{}\" is not a valid voltage measurement range for the Keithley200.".format(senseRange) +
+                    "\"{}\" is not a valid voltage measurement range for the Keithley2000.".format(senseRange) +
                     " Valid voltage sensing ranges are: 100E-3,1,10,100,1000 Volts and equivalent representations."
                 )
-        elif (mode == "current"): # when sourcing a current we sense voltage 
+        elif (mode == "current"): #
             if float(senseRange) in (10E-3,100E-3,1,3):   
                 self.dev.write("SENS:CURR:RANG "+str(senseRange))
 

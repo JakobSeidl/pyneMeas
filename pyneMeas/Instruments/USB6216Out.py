@@ -1,7 +1,6 @@
 """
-Brought to v3.1.0 on Fri Oct 10 2019 by APM
-
-@author: Adam Micolich
+author: Adam Micolich
+Updated by Jakob Seidl
 
 This module does the output handling for the USB-6216, which is effectively a pair of analog outputs
 and a set of 8 analog inputs. The input handling is done by a separate .py. There is a settable option for 
@@ -27,7 +26,7 @@ class USB6216Out(Instrument.Instrument):
         self.dev = address
         self.type ="USB6216"  #We can check each instrument for its type and react accordingly
         self.name = "myUSB6216"
-
+        self.usbPort = usbPort
         if self.dev in [0, 1]:
             self.port = f"{self.usbPort}/ai{self.dev}"
         else:

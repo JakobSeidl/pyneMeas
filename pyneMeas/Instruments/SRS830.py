@@ -103,7 +103,7 @@ class SRS830(Instrument.Instrument):
               XList[XexpIndex+2] =""
            Xfinal = float("".join(XList))
         else:
-            Xfinal = 0 # we need to do something like htis because if the result is already zero or some odd/weird number, the exponent finding process above breaks down
+            Xfinal = 0 # we need to do something like this because if the result is already zero or some odd/weird number, the exponent finding process above breaks down
         
         YexpIndex = Y.find("e-")    
         if YexpIndex != -1:

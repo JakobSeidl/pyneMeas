@@ -6,13 +6,13 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyneMeas", # Replace with your own username
-    version="0.0.1",
+    version="0.0.2",
     author="Jakob Seidl",
     author_email="jakob.seidl91@gmail.com",
-    description="A small example package",
+    description="A simple Python 3 interface for controlling electronic measurement instruments and scripting measurement sweeps.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/JakobSeidl/pyneMeas",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -21,9 +21,9 @@ setuptools.setup(
     ],
     include_package_data=True,  #this should tell the package to include the non-python files defined in MANIFEST.in
     python_requires='>=3.6',
-    install_requires = ['cycler','kiwisolver','numpy',
-                        'matplotlib','nidaqmx','pandas','Pillow',
-                        'pyparsing','python-dateutil','pytz','scipy','six']
+    install_requires = ['numpy',#  'cycler','kiwisolver'
+                        'matplotlib','nidaqmx','pandas',#'Pillow'
+                        'scipy','pyvisa'] #'pytz','pyparsing','python-dateutil','six'
     
 )
 

@@ -1,12 +1,6 @@
-cycler
-kiwisolver
 numpy
 matplotlib
 nidaqmx
 pandas
-Pillow
-pyparsing
-python-dateutil
-pytz
 scipy
-six
+pyvisa
