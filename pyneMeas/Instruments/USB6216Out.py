@@ -28,7 +28,8 @@ class USB6216Out(Instrument.Instrument):
         self.name = "myUSB6216"
         self.usbPort = usbPort
         if self.dev in [0, 1]:
-            self.port = f"{self.usbPort}/ai{self.dev}"
+            self.port = f"{self.usbPort}/ao{self.dev}"
+            
         else:
             raise ValueError(
                 f'Please insert a valid Input port for the NIDaQ ranging from 0 to 1. You entered {self.dev}')
@@ -75,26 +76,26 @@ class USB6216Out(Instrument.Instrument):
         self.extPort = extPort
         if self.feedBack == "Int":
             if self.dev == 0:
-                self.fbp = "Dev1/_ao0_vs_aognd"
+                self.fbp = f"{self.usbPort}/_ao0_vs_aognd"
             elif self.dev == 1:
-                self.fbp = "Dev1/_ao1_vs_aognd"
+                self.fbp = f"{self.usbPort}/_ao1_vs_aognd"
         elif self.feedBack == "Ext":
             if self.extPort == 0:
-                self.fbp = "Dev1/ai0"
+                self.fbp = f"{self.usbPort}/ai0"
             elif self.extPort == 1:
-                self.fbp = "Dev1/ai1"
+                self.fbp = f"{self.usbPort}/ai1"
             elif self.extPort == 2:
-                self.fbp = "Dev1/ai2"
+                self.fbp = f"{self.usbPort}/ai2"
             elif self.extPort == 3:
-                self.fbp = "Dev1/ai3"
+                self.fbp = f"{self.usbPort}/ai3"
             elif self.extPort == 4:
-                self.fbp = "Dev1/ai4"
+                self.fbp = f"{self.usbPort}/ai4"
             elif self.extPort == 5:
-                self.fbp = "Dev1/ai5"
+                self.fbp = f"{self.usbPort}/ai5"
             elif self.extPort == 6:
-                self.fbp = "Dev1/ai6"
+                self.fbp = f"{self.usbPort}/ai6"
             elif self.extPort == 7:
-                self.fbp = "Dev1/ai7"
+                self.fbp = f"{self.usbPort}/ai7"
 
     @Instrument.addOptionGetter("scaleFactor")
     def _getScaleFactor(self):

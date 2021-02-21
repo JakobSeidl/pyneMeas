@@ -25,6 +25,7 @@ class USB6216In(Instrument.Instrument):
         # Define the self.port which is the handle to the device
         if self.dev in [*range(8)]:
             self.port = f"{self.usbPort}/ai{self.dev}"
+            
         else: raise ValueError(f'Please insert a valid Input port for the NIDaQ ranging from 0 to 7. You entered {self.dev}')
         
     @Instrument.addOptionSetter("name")
