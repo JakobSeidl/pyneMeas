@@ -12,8 +12,13 @@ import pyneMeas.Instruments.Instrument as Instrument
 class TimeMeas(Instrument.Instrument):
     """Creates a TimeMeas virtual instrument that can set time (setter) or measure the elapsed time during a measurement.
 
-    :param
-    :return: TimeMeas instance
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    TimeMeas class instance
 
     >>> TimeMeas(0.5)
     <Instruments.TimeMeas.TimeMeas object at 0x10fcc5790>
@@ -32,24 +37,46 @@ class TimeMeas(Instrument.Instrument):
     
     @Instrument.addOptionSetter("sourceLevel")
     def _dummySourceFunction(self,dummyVariable):
+        """ A dummy function used when this instrument is passed to the pyneMeas.utility.sweep() function. """
         # time.sleep(self.timeInterval)
         self.dummyPoint = dummyVariable
 
     @Instrument.addOptionGetter("sourceLevel")
     def _dummyReadSourceFunction(self):
-        # time.sleep(self.timeInterval)
+        """ A dummy function used when this instrument is passed to the pyneMeas.utility.sweep() function. """
         return self.dummyPoint
 
     @Instrument.addOptionGetter("type")
     def _getInstrumentType(self):
+        """ Returns instrument's type.
+         Access it via publicly available myInstrument.get('type') method.
+
+        Returns
+        -------
+        self.name : str """
         return self.type
+
+
     @Instrument.addOptionGetter("timeStamp")
     def _getTime(self):
+        """ Returns instrument's current timestamp.
+        Access it via the publicly available get method:
+        >> myInstrument.get('timeStamp')
+
+        Returns
+        -------
+        timestamp : float """
         return time.time()-self.initTime
     
     @Instrument.addOptionSetter("name")
     def _setName(self,instrumentName):
-         self.name = instrumentName
+        """ Set's instrument's unique 'name'.
+        Access it via publicly available myInstrument.set('name') method.
+
+        Parameters
+        -------
+        name : str """
+        self.name = instrumentName
 
     @Instrument.addOptionGetter("name")
     def _getName(self):

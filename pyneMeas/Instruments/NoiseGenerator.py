@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-VERSION 4.0
 @author: Jakob Seidl
 jakob.seidl@nanoelectronics.physics.unsw.edu.au
 """
@@ -11,7 +10,7 @@ import pyneMeas.Instruments.Instrument as Instrument
 
 @Instrument.enableOptions
 class LinearNoiseGenerator(Instrument.Instrument):
-    """Creates a TimeMeas virtual instrument that can set time (setter) or measure the elapsed time during a measurement.
+    """Creates a LinearNoiseGenerator virtual instrument that creates simulated linearly increasing noise signal.
 
     :param
     :return: NoiseGenerator instance
@@ -61,7 +60,7 @@ class LinearNoiseGenerator(Instrument.Instrument):
 
 @Instrument.enableOptions
 class SineNoiseGenerator(Instrument.Instrument):
-    """Creates a TimeMeas virtual instrument that can set time (setter) or measure the elapsed time during a measurement.
+    """Creates a SineNoiseGenerator virtual instrument that creates simulated sinusoidal noise signal.
 
     :param
     :return: NoiseGenerator instance
