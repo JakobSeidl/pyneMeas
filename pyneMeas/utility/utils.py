@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-VERSION 4.0
 @author: Jakob Seidl
 jakob.seidl@nanoelectronics.physics.unsw.edu.au
 """
@@ -13,16 +12,25 @@ import numpy as np
 import matplotlib
 
 
-def array(start,target,stepsize,upDown = False):
-    
+def array(start,target,stepsize):
+    """Helper function that creates single 1D array from start to stop. Used in targetArray()"""
     sign = 1 if (target>start) else -1
-    sweepArray = np.arange(start,target+sign*stepsize,sign*stepsize)
-    if upDown:
-        sweepArrayBack = np.arange(target,start+-sign*stepsize,-sign*stepsize)
-        sweepArray = np.concatenate((sweepArray,sweepArrayBack))
+    sweepArray = np.arange(start,np.round(target+sign*stepsize,decimals=5),sign*stepsize) #The rounding makes function more predictable
+
     return sweepArray
 
 def targetArray(targetList,stepsize):
+    """Convenient way of creating a linearly-spaced array of floats of type np.ndarray().
+    Parameters
+    ----------
+        targetList : list of target floats
+                    E.g. [0.0,1.2,-0.3]
+        stepsize : float
+    Returns
+    -------
+        sweepArray : np.ndarray (1D)
+
+    """
     arrayList = []
     stepsize = float(stepsize)
     for index, item in enumerate(targetList):
@@ -32,7 +40,7 @@ def targetArray(targetList,stepsize):
         elif index == 1:
             arrayList.append(array(targetList[index - 1], targetList[index], stepsize))
         elif (index > 1):
-            arrayList.append(array(targetList[index-1],targetList[index],stepsize)[1:]) #in order to avoid doublicating numbers
+            arrayList.append(array(targetList[index-1],targetList[index],stepsize)[1:]) # slice [1:] in order to avoid dublicating numbers
     return np.concatenate((arrayList))
 
 def fileDialog(initAd = "/"):
@@ -47,6 +55,8 @@ def fileDialog(initAd = "/"):
     return [basePath,fileName]
 
 def runTest():
+    """Parameterless function that test the user's installation of pyneMeas.
+    Creates a live plot of virtual data and saves it to a local directory."""
     import pyneMeas.Instruments as I
     import pyneMeas.utility as U
     T = I.TimeMeas()
@@ -80,7 +90,8 @@ def runTest():
 
 def sendEmail(targetAddress, measurementName):
     """
-    Sends and email from our group's shared account. Users that are not in our group will find these credentials empty. They need to be populated before the email can be sent.
+    Sends and email from our group's shared account. Users that are not in our group will find these credentials empty.
+    They need to be populated before the email can be sent.
 
     """
     import smtplib

@@ -16,7 +16,8 @@ filePath =  relPath + 'GlobalMeasIDBinary'
 
 
 
-def init(preFix = 'A',ID= 0):
+def initID(preFix = 'A',ID= 0):
+    """ Initializes a new preFix dictionary with the default prefix 'A' and a running ID of zero."""
     with open(filePath, 'w') as file:
      file.write(json.dumps({'currentPreFix':preFix,preFix:ID
                            }))
@@ -32,15 +33,23 @@ def  addPrefix(newPreFix):
 
 
 def readCurrentID():
+    """ Reads current measurement ID running number.
+
+    Returns
+    ----------
+    ID : int
+    """
     with open(filePath, 'r') as file:
         Dict = json.loads(file.read())
         return Dict[Dict['currentPreFix']]
 
 def listIDs():
+    """ Lists all available measurement ID prefixes and running numbers. """
+
     with open(filePath, 'r') as file:
         Dict = json.loads(file.read())
-        current = f"Currently used Prefix/Setup: {Dict['currentPreFix']}  --> ID = {Dict[Dict['currentPreFix']]} \n -------------------------- \nOther available Setups/Prefixes are: "
-        print(current)
+        current = f"Currently used Prefix/Setup: {Dict['currentPreFix']}  --> ID = {Dict[Dict['currentPreFix']]}"
+        print(current+f"\n{'-'*len(current)} \nOther available Setups/Prefixes are: ")
         retString = ''
         retString = retString.join(current+'\n')
         for key,item in Dict.items():
@@ -50,6 +59,7 @@ def listIDs():
 
         # return retString
 def increaseID():
+    """ Increments currently used measurement ID (int) by one. """
     with open(filePath, 'r') as file:
         # print(file.read())
         inputDic=  json.loads(file.read())
@@ -58,6 +68,14 @@ def increaseID():
         file.write(json.dumps(inputDic))
 
 def setCurrentSetup(preFix):
+    """ Sets currently used measurement prefix to preFix.
+
+     Parameters
+     ----------
+     preFix : str
+              Must be a string prefix that has previously been defined via the addPrefix('preFix') method.
+
+     """
     with open(filePath, 'r') as file:
         Dict = json.loads(file.read())
         previousPrefix = Dict['currentPreFix']
@@ -76,28 +94,14 @@ def setCurrentSetup(preFix):
         raise Exception(f'Prefix not defined!!\n Currently defined prefixes can be listed by usign the listIDs() function.\n Define the desired prefix first using the addPrefix(newPrefix) method')
 
 def readCurrentSetup():
+    """ Reads current measurement prefix
+
+    Returns
+    ----------
+    preFix : str
+    """
     with open(filePath, 'r') as file:
         Dict=  json.loads(file.read())
         return Dict['currentPreFix']
 
 
-#def readCurrentID():
-#        IDTXT =open(IDpath,"r")
-#        ID = int(IDTXT.read())
-#        IDTXT.close()
-#        return(ID) 
-#    
-#def increaseID():
-#        ID = readCurrentID()
-#        IDTXT =open(IDpath,"w")
-#        IDTXT.write(str(ID+1))
-#        IDTXT.close()
-#def readCurrentSetup():
-#    return currentSetup
-#        
-#def init():
-#    """Creates a new ID file at the path specified in variable 'Idpath'. Should only be called if the ID file was deleted etc. """
-#    IDTXT =open(IDpath,"w")
-#    IDTXT.write(str(0))
-#    IDTXT.close()
-    

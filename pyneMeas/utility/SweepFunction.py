@@ -45,7 +45,6 @@ def sweepAndSave(
                  saveEnable = True,
                  delay = 0.0,
                  plotVars = None,
-                 # plotString  = ['go--','ro-','bo--','o-'], #linePlot: symbol (-; -- or o,s,^,>   plus a colour: 'r' red, 'g' green etc.
                  comments = "No comments provided by user",
                  plotParams = [('go--','linear-linear'),('ro-','linear-linear')]*10,
                  saveCounter = 10,
@@ -54,14 +53,63 @@ def sweepAndSave(
                  plotSize = (10,10),
                  plotAlpha = 0.8,
                     ):
+    """Executes a measurement sweep using pre-defined instruments and parameter values.
+       See usage under https://pypi.org/project/pyneMeas/
 
-    """sweepAndSave is the main function of this module and THE sweepfunction. It is the only function that the user actually calls himlself
-    - all other functions provided here all called 'under the hood by sweepAndsave'. It can be subdivided into three parts:
-    (1): Initialize: Check if user input is valid, create data and log files on disk and set up the plot object. All this is done ONCE ONLY.
-    (2): sweep() function which calls receiver() within: LOOP Section: This is the actual sweep,
-    i.e., iterative process carried out over every single datapoint in the inputArray. This is: (I) set setter Instr to inputArray point, then Query all meas instruments,
-    (II) append data to files and plots and (III) every N-th iteration (default =10), force the file to be written on disk.
-    (3): Wrap-up: Write the final instrument parameters and data to file, save the plot as .png, close all file connections (good practice!)"""
+    Parameters
+    ----------
+        inputDict : dict various value types.
+                    inputDict requires the following keys: 'basePath', 'fileName','setters','sweepArray', 'readers'.
+
+        extraInstruments : list of intrument objects, optional.
+                           Used to keep track of instruments that are not directly used as setter or reader. Default= []
+
+        saveEnable : Boolean, optional.
+                     whether you want to save data to disk. Currently saveEnable = True is required for plotting. Default = True
+
+        delay : float, optional.
+                         Float, wait time in seconds after a value has been set and before instruments are read out. Default = 0.0.
+
+        plotVars : list of (string1,string2) tuples, optional.
+                         list of `('xVar','yVar')` tuples to be plotted. Example: `[ ('V_SD', 'I_SD'),('V_SD', 'I_Leak')]`. Default = None.
+
+        plotParams : list of `('plotString','XAxisScale-YAxisScale')` tuples, optional. Needs to contain one tuple
+                     for each x-y variable pair to be plotted, see above.
+                     `'plotString'` contains color, line and marker info. XAxisScale/YAxisScale can be 'linear' or 'log'.
+                       Example:  [('go-', 'linear-linear')]
+
+        comments : str, optional.
+                Comments written to the .log file. Include information such as sample ID, setup, etc. Default = "No comments provided by user".
+
+        saveCounter : int, optional.
+                After how many datapoints do you want to save data to disc. Can help speed up the measurement slightly. Default = 10.
+
+        breakCondition : tuple, optional.
+                Tuple: ('testVariable',operator,limit). operator can be '>' (greater than) or '<' (lower than).
+                 Example: ('Isd','>',50E-9) breaks the measurement when/if 'Isd' surpasses 50 nA. Default = None.
+
+        plotCounter : int, optional.
+                After how many datapoints do you want to plot the acquired data. plotCounter > 1 can help speed up the measurement significantly
+                since plotting is resource intensive. Default = 1.
+
+        plotSize : tuple of flots/ints, optional.
+                   (sizeX,sizeY) Size of the plot window in cm. Default = (10,10).
+
+        plotAlpha : float, optional.
+                   float ranging from 0 -> 1. Transparency of markers in plot. Default = 0.8.
+    Returns
+    -------
+        df : pandas.DataFrame
+            dataframe object with columns labelled as variable names and one row for each point in the sweepArray.
+
+    """
+    # sweepAndSave is the main function of this module and THE sweepfunction. It is the only function that the user actually calls himlself
+    # - all other functions provided here all called 'under the hood by sweepAndsave'. It can be subdivided into three parts:
+    # (1): Initialize: Check if user input is valid, create data and log files on disk and set up the plot object. All this is done ONCE ONLY.
+    # (2): sweep() function which calls receiver() within: LOOP Section: This is the actual sweep,
+    # i.e., iterative process carried out over every single datapoint in the inputArray. This is: (I) set setter Instr to inputArray point, then Query all meas instruments,
+    # (II) append data to files and plots and (III) every N-th iteration (default =10), force the file to be written on disk.
+    # (3): Wrap-up: Write the final instrument parameters and data to file, save the plot as .png, close all file connections (good practice!)
     # def unpackInputDict(inputDict):
     #     keyList = ['basePath','fileName','inputHeaders','sweepArray',
     #                'inputSetters','outputHeaders','outputReaders']
@@ -82,7 +130,7 @@ def sweepAndSave(
                 headers.append(item)
         return (instruments, headers)
 
-    inputDict = checkInputDict(inputDict)
+    inputDict = checkInputDict(inputDict,saveEnable)
     # basePath,fileName,inputHeaders,inputPoints, inputSetters,outputHeaders, outputReaders = unpackInputDict(inputDict)
     basePath, fileName, setters, inputPoints, readers = unpackInputDict(inputDict)
     inputSetters,inputHeaders = instrumentsHeadersfromDict(setters)
@@ -101,23 +149,33 @@ def sweepAndSave(
         pass
 
 
-
-
+    # Check if the plotting parameters ('plotVars') exist in in- and outputHeaders:
     # checkPlotHeaders(inputHeaders,outputHeaders,plotVars)
-    #Check if the plotting parameters ('plotVars') exist in in- and outputHeaders:
 
-    inputHeaders = flatten(inputHeaders);outputHeaders = flatten(outputHeaders); #Make sure we have simple lists, not lists within lists etc..
-    allHeaders = inputHeaders + outputHeaders
+
+    inputHeaders = flatten(inputHeaders);\
+    outputHeaders = flatten(outputHeaders); #Make sure we have simple lists, not lists within lists etc..
+    # allHeaders = inputHeaders + outputHeaders
 
     ### New breakCond Stuff ####
     if breakCondition != None and len(breakCondition) == 3:
         breakIndex =  outputHeaders.index(breakCondition[0])
     else: breakIndex = None
 
+    # Prepare a dict for the data too. This dict will be used to write data to a .mat file which can be conveniently read by Matlab or Python
+    pointsDict = {}
+    for header in flatten((flatten(inputHeaders), flatten(outputHeaders))):
+        pointsDict[header] = []
+
+    ID.increaseID()
+    measurementName = str(ID.readCurrentSetup()) + str(ID.readCurrentID())
+    startTime = time.time()  # Start time
+
+    # Main loop if user wants to save data to file:
     if(saveEnable):
-        ID.increaseID()
+
         fileName = str(ID.readCurrentSetup()) + str(ID.readCurrentID()) + "_" + fileName
-        startTime = time.time() # Start time
+
 
 
 
@@ -127,8 +185,6 @@ def sweepAndSave(
         #     inputSetters + outputReaders + extraInstruments
         # ))
         instruments  = set(inputSetters + outputReaders + extraInstruments)
-
-
 
         config = {}
         for instrument in instruments: #This goes through the list of all instruments and queries all options that have a associated 'get()' method. E.g., 'sourceMode' for the Keithely2401
@@ -170,15 +226,10 @@ def sweepAndSave(
         tsv.write("\t".join(flatten(inputHeaders))+ "\t")
         tsv.write("\t".join(flatten(outputHeaders)) + "\n")
 
-        # Prepare a dict for the data too. This dict will be used to write data to a .mat file which can be conveniently read by Matlab or Python
-        pointsDict = {}
-        for header in flatten((flatten(inputHeaders), flatten(outputHeaders))):
-            pointsDict[header] = []
-
 
         ##############          Prepare Plotting: ###############
 
-        measurementName = str(ID.readCurrentSetup()) + str(ID.readCurrentID()) # returns e.g. At104
+        # measurementName = str(ID.readCurrentSetup()) + str(ID.readCurrentID()) # returns e.g. At104
 
         Xvalues1 = [];Yvalues1 = [];Xvalues2 = [];Yvalues2 = [] #Generate empty lists of X and Y Data. This is used later in the plotting routine.
         if plotVars is not None:
@@ -273,22 +324,13 @@ def sweepAndSave(
                                 axObj.set_xlim([np.min(x) - stdX, np.max(x) + stdX])
                         except:
                             pass
-                        # axObj.set_ylim([np.min(y) - stdY, np.max(y) + stdY])
-                        # axObj.set_xlim([np.min(x) - stdX, np.max(x) + stdX])
 
-                    #fig.canvas.draw()
-                    #fig.canvas.flush_events()
                     plt.pause(0.00001)
                 ############## END Definition of receiver() ###############################
 
-
-            #if outputReceiver: #we dont really use that ever, ignore. This is a potential future interface if the user wants to do more with his data for each iteration
-            #    outputReceiver(inputPoint, outputPoint)
-            ##############  END Definition of receiver() ###############################
-
         #sweep() does the actual sweep and calls receiver() defined just above! sweep() is defined just below, outside of the sweepAndSave() definition
 
-        sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition,breakIndex,lenInputList) # !!!! BREAK !!!!
+        sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition,breakIndex,lenInputList)
 
 
 
@@ -318,8 +360,31 @@ def sweepAndSave(
         if plotVars is not None:
             plt.savefig(basePath +fileName+'.png') #Save Plot as .png as additional feature (only if plotting parameters were specified
             plt.close('all')
-    elif(not saveEnable): #This elif branch is basically never executed and can be ignored. We just assume that the user wants to sav and plot his data anyway.
-        sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition,lenInputList) #This does the actual sweep (without saving)!
+
+
+
+
+
+
+
+    # Main loop if user doesnt want to save data to file:
+    elif(not saveEnable): #
+
+
+        def receiverNoSave(inputPoint, outputPoint):
+            for value, header in zip(flatten(inputPoint), flatten(inputHeaders)):
+                pointsDict[header].append(value)
+            for value, header in zip(flatten(outputPoint), flatten(outputHeaders)):
+                pointsDict[header].append(value)
+
+        sweepNoSave(inputPoints, inputSetters, outputReaders,receiverNoSave , delay,breakCondition,breakIndex,lenInputList)  # This does the actual sweep (without saving)!
+
+
+
+
+
+    # Wrap Up:
+    elapsedTime = time.time()-startTime
     print(f'/>>>>>> Finished measurement {measurementName:} | Duration: {elapsedTime:.1f} seconds = {elapsedTime/60:.1f} min  <<<<<<<')
     return pd.DataFrame.from_dict(pointsDict)
 
@@ -327,7 +392,11 @@ def sweepAndSave(
 ######################################################################## END of sweepAndSave() ########################################################################
 #######################################################################################################################################################################
 
-
+# def receiverNoSave(inputPoint, outputPoint, outputHeaders):
+#     for value, header in zip(flatten(inputPoint), flatten(inputHeaders)):
+#         pointsDict[header].append(value)
+#     for value, header in zip(flatten(outputPoint), flatten(outputHeaders)):
+#         pointsDict[header].append(value)
 
 
 
@@ -339,6 +408,12 @@ def sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakConditio
     """sweep() defines the 'actual sweep',i.e.,, we define what is done for each 'inputPoint' of the array we want to sweep over. """
     prevPoint = None
     counter = 0
+
+    def checkPointBreaks():
+        if breakCondition[1] == '>':
+            return (flatten(outputPoint)[breakIndex] < breakCondition[2])
+        elif breakCondition[1] == '<':
+            return (flatten(outputPoint)[breakIndex] > breakCondition[2])
 
     # Actual loop over all points in inputArray:
     for inputPoint in inputPoints:
@@ -367,24 +442,12 @@ def sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakConditio
                 for reader in outputReaders:
                     if callable(reader): # In principle one could directly pass a (lambda) function instead of a real instrument. Then this block is carried out.
                         tempRes = reader()
-#                        print(tempRes)
+
                         outputPoint.append(tempRes)
-#                        print(running)
+
                     else: #However, usually we provide a 'real' instrument object and the appropriate instrument.get('readVariable') is called.
                         tempRes = reader.get(type(reader).defaultInput)
                         outputPoint.append(tempRes)
-
-
-
-                ### New breakCond Stuff ####
-
-
-                # lenInputList = len([*inputPoints])
-                def checkPointBreaks():
-                    if breakCondition[1] == '>':
-                        return (flatten(outputPoint)[breakIndex] < breakCondition[2])
-                    elif breakCondition[1] == '<':
-                        return (flatten(outputPoint)[breakIndex] > breakCondition[2])
 
                 #  !!!! BREAK !!!!!!!! BREAK !!!!!!!! BREAK !!!!
                 if (breakIndex == None or checkPointBreaks()):
@@ -392,15 +455,21 @@ def sweep(inputPoints, inputSetters, outputReaders, receiver,delay,breakConditio
                     counter = counter+1
                 else:
                     print(f"Terminated measurement: Reached breakCondition: \nMeasured variable: {breakCondition[0]} reached {flatten(outputPoint)[breakIndex]} which is {breakCondition[1]} {breakCondition[2]}")
-                    # receiver(inputPoint, outputPoint,counter,forceSave = True, forcePlot = True)
                     break
     receiver(inputPoint, outputPoint, counter,lenInputList, forceSave=True, forcePlot=True,)
 
 
 
 
-# sweepNoSave is not really used ever
-def sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition,lenInputList): #Since by default the 'saveEnable' option is True, this funciton is barely ever called.
+#               inputPoints, inputSetters, outputReaders, receiver,delay,breakCondition,breakIndex,lenInputList
+def sweepNoSave(inputPoints, inputSetters, outputReaders,receiverNoSave,delay,breakCondition,breakIndex,lenInputList): #Since by default the 'saveEnable' option is True, this funciton is barely ever called.
+
+    def checkPointBreaks():
+        if breakCondition[1] == '>':
+            return (flatten(outputPoint)[breakIndex] < breakCondition[2])
+        elif breakCondition[1] == '<':
+            return (flatten(outputPoint)[breakIndex] > breakCondition[2])
+
     prevPoint = None
     for inputPoint in inputPoints:
         if len(inputPoint) != len(inputSetters):
@@ -427,6 +496,13 @@ def sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition,le
             else:
                 outputPoint.append(reader.get(type(reader).defaultInput))
 
+        if (breakIndex == None or checkPointBreaks()):
+            receiverNoSave(inputPoint, outputPoint)
+        else:
+            print(
+                f"Terminated measurement: Reached breakCondition: \nMeasured variable: {breakCondition[0]} reached {flatten(outputPoint)[breakIndex]} which is {breakCondition[1]} {breakCondition[2]}")
+            break
+    receiverNoSave(inputPoint, outputPoint)
 #################################### From here on unimportant and helper functions ################
 ###################################################################################################
 
@@ -489,7 +565,7 @@ def sweepNoSave(inputPoints, inputSetters, outputReaders,delay,breakCondition,le
 #     return inputDict
 
 
-def checkInputDict(inputDict):
+def checkInputDict(inputDict,saveEnable):
     requiredKeys = {'basePath','fileName','setters',
                     'sweepArray','readers'}
     inputArgs = set(inputDict.keys())
@@ -507,7 +583,8 @@ def checkInputDict(inputDict):
     #  3. basePath
     assert isinstance(inputDict['basePath'],str), f"The 'basePath' attribute of the input dictionary needs to be a string! You entered {inputDict['basePath']}."
     if os.path.exists(inputDict['basePath']):
-        print(f'Saving data to existing directory: {inputDict["basePath"]}')
+        if saveEnable: print(f'Saving data to existing directory: {inputDict["basePath"]}')
+        else: print('Data not saved to disk. Use pandas.dataFrame return value of sweep() to use data.')
     else:
         os.mkdir(inputDict['basePath'])
         print(f'Created data storage directory: {inputDict["basePath"]}')
