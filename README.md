@@ -1,4 +1,4 @@
-# pyneMeas documentation (v0.0.2)
+# pyneMeas documentation (v0.0.4)
 
 A package for simple electrical measurements using the National Instruments (NI) VISA standard.
 Developed by Jakob Seidl and coworkers at the Nanoelectronics group at the University of New South Wales, Sydney.
@@ -16,10 +16,11 @@ Currently implemented instruments include:
 5. National Instruments USB6216 data acquisition card (NiDAQ)
 6. Yokogawa GS200 source measure unit
 
-It is easy to write you own instrument classes by just following a pre-made template. See [XX].
+It is easy to write you own instrument classes by using existing intrument classes and replacing the 
+required GPIB SCPI commands commonly supplied in the intrument's handbook.
 
-In addition, this software features code to control Oxford Instruments superconducting magnet power supplies and
-read-out code to monitor the status of Oxford instruments Heliox cryostats. 
+In addition, this code was also used to control Oxford Instruments superconducting magnet power supplies and
+read out the status of Oxford instruments Heliox cryostats. This code is available from the author upon request.
 ## A: Quickstart guide
 ### A.1 Installing pyneMeas:
 Case A: from the online repository PyPi:
@@ -29,33 +30,33 @@ Case A: from the online repository PyPi:
 Case B: from a local pyneMeas folder on your PC:
 
 `$ pip install -e local/Path/pyneMeas/.`   the `-e` flag allows to make changes to the original files in the folder,
-useful if you want to tweak the code while working.
+useful if you want to tweak the code while working. Enclose you path like this if it contains whitespace: "local Path/with whitespace/SourceDirectory".\
 You can download the sourcecode (.zip) from github under
 https://github.com/JakobSeidl/pyneMeas
 
-Install the package in a virtual environment (venv) or in your global Python 3 installation, whatever works best for your use-case.
+Install the package in a virtual environment (see e.g. [this guide](https://realpython.com/python-virtual-environments-a-primer/)) or in your
+global Python 3 installation, whatever works best for your use-case.
 
 Check if the installation was successful:\
 `$ pip list` returns a list of packages that should contain
 ```$ pip  20.3
-pyneMeas           0.0.2    
+pyneMeas           0.0.4    
 ```
 if you installed it from the internet (Case A) or 
 ```$ pip  20.3
 pyneMeas           /Path/To/Local/SourceDirectory    
 ```
-if you installed pyneMeas from a local folder, e.g., after downloading the source code from gitHub (Case B). Enclose you path like this if it contains whitespace: "local Path/with whitespace/SourceDirectory" \
+if you installed pyneMeas from a local folder, e.g., after downloading the source code from gitHub (Case B).\
 You can then try loading the package as described in the following section.
 
 ### A.2 Non-python drivers and hardware you'll need
 
 IMPORTANT: In order to use commercial GPIB-controlled instruments such as Keithely source-measure units,
 you need to install the proprietary National Instruments VISA/USB-H bundle driver 
-(https://www.ni.com/en-au/support/downloads/drivers/download.ni-488-2.html#306147). Possibly, this could be
+[here](https://www.ni.com/en-au/support/downloads/drivers/download.ni-488-2.html#306147). Possibly, this could be
 replaced by a fully open-source
-library such as pyvisa-py that supplies the back-end (https://pyvisa-py.readthedocs.io/en/latest/).
-For using the National Instruments Data Acquisition cards (NIDaQ), you need the corresponding driver
- (https://www.ni.com/en-au/support/downloads/drivers/download.ni-daqmx.html#288239). 
+library such as [pyvisa-py](https://pyvisa-py.readthedocs.io/en/latest/) that supplies the back-end.
+For using the National Instruments Data Acquisition cards (NIDaQ), you need the corresponding [NIDaQ driver](https://www.ni.com/en-au/support/downloads/drivers/download.ni-daqmx.html#288239). 
  
  For both we recommend not chossing the latest version but simpler, earlier versions.
 
@@ -152,6 +153,38 @@ Out:
 
 >>> df.plot(x = 'V_SD', y ='I_SD') # A simple way of plotting the data                                                        
 ```
+### A.5 finding help
+1 Remember that in Python, you can call the help() function on any method or object. E.g., if you want
+to find out about the `sweep()` function, try calling
+```
+>>> help(U.sweep) # No brackets here as we don't want to call the function
+```
+Note: Doc-strings are currently being implemented, so help() might not yet work for all methods/classes.
+
+2 If you can't remember, which attributes you can set with the myInstrument.set(), just call 
+those methods with a clearly wrong argument:
+```
+>>> noiseGenerator = I.LinearNoiseGenerator()
+
+>>> noiseGenerator.set('wrong',1)
+ValueError: 
+"wrong is not a valid option. dict_keys(['sourceLevel', 'name'])
+ are available"
+```
+,which means only the keys `'sourceLevel` and `'name` can be set for this instrument.
+
+3 If you remember the key attribute but not the possible numerical ranges, you can call set() 
+with a clearly wrong numerical argument
+```
+>>> keithley = I.Keithley2401(10)
+
+>>> keithley.set('sourceRange',3000)
+ValueError: 
+"3000 is not a valid voltage source range for the Keithley2401.
+Valid voltage ranges are: 20, 10, 1, 0.1, 0.01 and 0.001 Volts and
+equivalent exponential representations."
+```
+  
 ## B   Example scripts/ Tutorials
 ### B.1 Two variables: A gate-sweep measurement
 ```
@@ -207,7 +240,7 @@ Dct['readers'] = {  myKeith:    'I_d',
 
 Dct['sweepArray'] = range(100) # measure over 100 datapoints
 
-U.sweep(Dct, delay=0.2, # The delay here determines roughly how often we measure per unit time.
+df = U.sweep(Dct, delay=0.2, # The delay here determines roughly how often we measure per unit time.
         plotVars = [('time','I_d')],
         breakCondition = ('time','>',50)) # optionally we can terminate the measurement after a certain time period if desired.
 
@@ -218,8 +251,16 @@ U.sweep(Dct, delay=0.2, # The delay here determines roughly how often we measure
 simpleNiDaQ.py
 --------------
 
-DaqIn = USB6216In(2) # Using Analog Input AI2
-DaqOut = USB6216Out(1) # Using Analog Output AO1
+DaqIn = USB6216In(2,usbPort = 'Dev1') # Using Analog Input AI2. usbPort depends on the usb port windows assigns to the nidaq
+DaqOut = USB6216Out(1,usbPort = 'Dev1') # Using Analog Output AO1
+
+DaqOut.setOptions({
+    "feedBack":"Int",
+    "extPort":6, # Can be any number 0-7 if in 'Int'
+    "scaleFactor":1
+})
+
+DaqIn.set("scaleFactor",1) # If we don't use an amplifier, gain =1)
 
 myTime = TimeMeas()
 
@@ -302,7 +343,8 @@ data = U.sweep(Dct,
 ```     
 ### B.5 Abruptly changing signals - sourcing step functions with SMU's
 ```
-
+square_transients.py
+--------------------
 Vgate_Keithley = I.Keithley2401(10)
 VBias_Keithley = I.Keithley2401(11)
 myTime = TimeMeas()
@@ -330,57 +372,71 @@ df = U.sweep(Dct,
 ```
 ### B.6 Reading current instrument setter status to dynamically define next sweeps
 ```
-[... To be completeted soon]
-# Step 1 Gate-sweep that will be stopped by breakCondition once current drops below 1E-6 A:
+breakGateSweep.py
+------------------
+import pandas as pd # Required later for dataframe operations
+
+Vgate_Keithley = I.Keithley2401(10)
+VBias_Keithley = I.Keithley2401(11)
+
+[Set options either manually or with .setOptions({'key':argument}) method]
+
+Dct = {} # Define empty dictionary as container
+Dct['basePath'] = "Data/" 
+
+Dct['setters'] = {Vgate_Keithley:    'V_G'} 
+
+Dct['readers'] = {  VBias_Keithley:    'I_SD',
+                    Vgate_Keithley:    'I_LeakGate'} 
+
+gateLow = -1; gateHigh = 1.5
+Dct['sweepArray'] = U.targetArray([0, gateLow, gateHigh, 0], stepsize = 0.05) 
+          
+sourceDrainBiase = 0.1 #  volt
+
+Dct['fileName'] = 'gateSweep_01V'
+
+VBias_Keithley.goTo(bias,0.01,0.2) # Go to the desired bias, then execute gate sweep.  
+
+# This gatesweep breaks if the gate leakge current ever surpasses 10 nA.
+df = U.sweep(Dct, delay=0.2,
+        plotVars = [('V_G','I_SD'), ('V_G','I_LeakGate')],
+        breakCondition=('I_LeakGate','>',10E-9))
+            
+
+#Check if the measurement was broken by the breakCondition:
+# If measurement was stopped, measure from the current gate voltage back to 0.
+
+if len(df) < len(Dct['sweepArray']):
+    currentVg = Vgate_Keithley.get('sourceLevel') # At what VG did the gate leakage exceed out limit?
+    Dct['sweepArray'] = U.targetArray([currentVg,0], stepsize = 0.05) # overwrite previous array
+    
+    # Finally carry out measurement
+    dfBack = U.sweep(Dct, delay=0.2,
+                     plotVars = [('V_G','I_SD'), ('V_G','I_LeakGate')]) 
+    
+# It can be useful to concatenate the data from both measurements into one dataframe .
+This can be more convenient than the separate saved data files, which were created for each measurement.
 
 
-# Step 2: After breaking the measurement, you wish to drive the gate back up while measuring.
-current = mySetter.get('sourceLevel')
-                                                    
+dataFull = pd.concat([df,dfBack],ignore_index=True)
+dataFull.plot(x='V_G',y='I_SD')
+                                                        
 ```
-## C   In-depth documentation on instruments and utility functions
 
-#### C.1 Optional parameters of the sweep() function
-
-`delay` Float, wait time in seconds after a value has been set and before instruments are read out. Default=0.0
-
-`comments` String, Comments on experiment, sample etc. Is stored in the .log file together with
- the saved data. Useful for data not measured by instruments. Example: `"SampleA, I-V, T= 77K"`
-
-`plotVars` list of `(xVar,yVar)` tuples to be plotted. Example: `[ ('V_SD', 'I_SD') ]` from above.
-
-`plotParams` list of `('plotString','XAxisScale-YAxisScale')` tuples. `'plotString'` contains color, line and marker info. 
-See https://matplotlib.org/3.3.3/api/_as_gen/matplotlib.pyplot.plot.html under Notes. 
-'XAxisScale-YAxisScale' can be e.g. `'linear-linear'` or `'linear-log'` or any combination.
- Example: `[ ('go-', 'linear-linear') ]`
- 
-`plotAlpha` Float, Transparency of markers: 1= no transparencey, 0 = fully transparent. Default = 0.8
-
-`plotCounter` Integer, After how many datapoints do you want to update the plot.  plotCounter > 1 helps speed up plotting. Default = 1
-
-`plotSize` Tuple of two floats `(xSize,ySize)`, size of plot window in cm. Default = (10,10)
-
-`saveCounter` Integer, After how many datapoints do you want to save data to disc. 
-Can help speed up the measurement slightly. Default = 10
-
-`breakCondition` Tuple, `('Variable','comparisonOperator',Value)`. Allows to stop a measurement when a certain condition is met.
- `'Variable'` is compared against `Value` using `'comparisonOperator'`. 
-`'comparisonOperator'` can be `'<'` or `'>'` at the moment. Example: `breakCondition = ('I_SD','>',1E-6)` will end the
- measurement when `'I_SD'` reaches a value above 1 microampere.
- 
-`extraInstruments` List of instrument objects, used to keep track of instruments that are not directly used as setter or reader but you still want to see logged in the .log file.
-
-`saveEnable` Boolean, Defines wheather saving the data is desired. Default = True
 
 ---
+## C   Documentation of instrument parameters
+Upon creation, these Instruments need to be prefixed by the pyneMeas.Instrument alias (`I.` in the example scripts.)
+##### Most if the following properties can be set, as well as queried with the get/set methods.
+#### C.1 Keithley 2400 series
+Source/measure unit supplying either voltage or current.
 
-#### C.2 Keithley 2400 series
-##### These properties can be set, as well as queried with the get/set methods.
 `'outputEnable'`: Boolean, Turns instrument output on (True or 1) or off (False or 0). 
 `outputEnable = True` is required for instrument operation.
 Example: `>>> myKeithley.set('outputEnable',False)` 
 
-`'sourceMode'`, String, can be `'voltage'` or `'current'` for sourcing a voltage or current respectiveley.
+`'sourceMode'`, String, can be `'voltage'` or `'current'` for sourcing a voltage or current respectively.
 The instrument will also measure the flowing current (when sourcing `'voltage'`) or the resulting voltage (when sourcing a `'current'`).
 When a Keithley2400 instrument is created, it will internally check the current source mode of the instrument, so `'sourceMode'` can be set in hardware or software.
 
@@ -390,7 +446,7 @@ When sourcing `'voltage'`, possible limits are: ` (20,10,1,0.1,0.01,0.001)` (in 
 
 `'name''` String, Optional unique name of the instrument to distinguish between various instruments of the same type.
 
-`'sourceLevel'`, Float, set method only. Directly sets the output (voltage or current) to the set value. We do not recommend using this directly, especially not for sensitive nanoscale samples.
+`'sourceLevel'`, Float, set or get method. Directly sets the output (voltage or current) to the set value. We do not recommend using this directly, especially not for sensitive nanoscale samples.
 Use `myInstrument.goTo(target,stepSize,delay)` instead to slowly approach the desired setpoint.
 
 `'senseLevel'` Returns float, get method only. Returns the current voltage/current reading.
@@ -404,7 +460,9 @@ or highest voltage when sourcing `'current'`. Must lie below the highest value t
 `'scaleFactor'` Float, scales the measured values form the instrument. Defaults to 1 and does not usually have to be set. 
 
 ---
-#### C.3 Keithley 2000 series
+#### C.2 Keithley 2000 series
+Versatile amp/voltmeter.
+
 `'senseMode'`, String, determines whether the instrument reads current or voltage as input. Can be `'voltage'` or `'current'`.
 
 `'senseRange'` Float, sets the input range. Allowed voltage ranges are: `(100E-3,1,10,100,1000) #  volts.`
@@ -416,7 +474,8 @@ Allowed current ranges are: `(10E-3,100E-3,1,3) #  amps.`
 
 ---
 
-#### C.4 Keithley 6517A Electrometer
+#### C.3 Keithley 6517A Electrometer
+Very sensitive amp/voltmeter.
 
 `'zeroCheck'` Boolean, `True` enables zerocheck mode, which protects the instrument when not in use.
  Needs to be disabled (`False`) before a measurement.
@@ -437,10 +496,9 @@ Reduce this if your overall sweep velocity is too fast for the instrument to cat
 ---
 
 
-#### C.5 SRS830 lock-in amplifier
+#### C.4 SRS830 lock-in amplifier
 
-For a detailed look at the lock-in specific parameters, please refer to the excellent manual of the SRS830
-https://www.thinksrs.com/downloads/pdfs/manuals/SR830m.pdf
+For a detailed look at the lock-in specific parameters, please refer to the excellent [manual of the SRS830](https://www.thinksrs.com/downloads/pdfs/manuals/SR830m.pdf).
 
 `'frequency':` Float between 0.1 Hz & 100 kHz. Sets the operation frequency.
 
@@ -471,7 +529,201 @@ that this is not fully mature at the moment and should be properly tested prior 
 
 `'name'` String, Optional unique name of the instrument to distinguish between various instruments of the same type.
 
-#### C.6 YokogawaGS200
-[Following soon]
+#### C.5 YokogawaGS200
+Voltage/current source unit.
+
+`outputEnable`, Boolean, `True` is required for instrument operation.
+
+`'sourceMode'`, String, can be `'voltage'` or `'current'` for sourcing a voltage or current, respectively.
+
+`'sourceRange': ` Float, sets overall source range of instrument. Highest value you want to put out needs to be below this limit.
+When sourcing `'voltage'`, possible limits are: ` (30,10,1,0.1,0.01)` (in volts). When sourcing 
+`'current'`, possible limits are: `(0.2,0.1,0.01,0.001)`(in amperes). 
+
+`'sourceLevel'`, Float, set or get method. Directly sets the output amplitude to the set value. We do not recommend using this directly.
+Use `myInstrument.goTo(target,stepSize,delay)` instead to slowly approach the desired setpoint.
+
+`'name'` String, optional. Unique name of the instrument to distinguish between various instruments of the same type.
+
+`compliance`, Float, Hard limit of highest current the instrument supplies when sourcing `'voltage'`
+or highest voltage when sourcing `'current'`. 
+
+#### C.6 National Instruments NiDaQ (USB6216) 
+Data acquisition device that can carry out fast (up to 200kHz) transient measurements. 
+Consists of a arbitrary function generator part (Out) and various Analog-to-digital converter inputs (IN).
+These are realized by the `USB6216Out()` and `USB6216In()` classes, respectively.
+
+1. `USB6216Out(outputPort,usbPort)`
+
+`outputPort` int, required upon initialization. Can be 0: (port AO0) or 1: (port AO1)  
+
+`usbPort` int, required upon initialization. Internal device port of the NiDaQ. Is usually 1 (Dev1) or 2 (Dev).
+                Will throw an error when outputting a voltage. Device number can be found e.g. using NI MAX.  
+
+`feedback` int, optional. Default: `'Int'` (internal). External feedback (`'Ext'`) not tested yet.
+
+`extPort` int, optional. If `feedback` is set to `'Int'`, it can be any number from 0-7, without any effect. 
+Testing required when `feedback` is set to `'Ext'`.
+
+2. `USB6216In(inputPort,usbPort)`
+
+`inputPort` int, required upon initialization. Can range from 0: (port AI0) to 7: (port AI7)  
+
+`usbPort` int, required upon initialization. Internal device port of the NiDaQ. Is usually 1 (Dev1) or 2 (Dev).
+                Will throw an error when outputting a voltage. Device number can be found e.g. using NI MAX.  
+
+`scaleFactor` float, optional. Scales the measured voltages by this factor. Used when the measured 
+voltages are amplified by an amplifier of known gain. 
+
+
+## D   Documentation of utility functions
+To access these functions, use the pyneMeas.utility alias (`U.` in the example scripts.)
+#### D.1 The `sweep()` function
+Common usage: See example script above.
+
+
+Parameters:
+
+`delay` Float, wait time in seconds after a value has been set and before instruments are read out. Default=0.0
+
+`comments` String, Comments on experiment, sample etc. Is stored in the .log file together with
+ the saved data. Useful for data not measured by instruments. Example: `"SampleA, I-V, T= 77K"`
+
+`plotVars` list of `('xVar','yVar')` tuples to be plotted. Example: `[ ('V_SD', 'I_SD') ]` from above.
+
+`plotParams` list of `('plotString','XAxisScale-YAxisScale')` tuples. `'plotString'` contains color, line and marker info. 
+See the [Matplotlib documentation](https://matplotlib.org/3.3.3/api/_as_gen/matplotlib.pyplot.plot.html) under Notes. 
+'XAxisScale-YAxisScale' can be e.g. `'linear-linear'` or `'linear-log'` or any combination.
+ Example: `[ ('go-', 'linear-linear') ]`
+ 
+`plotAlpha` Float, Transparency of markers: 1= no transparency, 0 = fully transparent. Default = 0.8
+
+`plotCounter` Integer, After how many datapoints do you want to update the plot.  plotCounter > 1 helps speed up plotting. Default = 1
+
+`plotSize` Tuple of two floats `(xSize,ySize)`, size of plot window in cm. Default = (10,10)
+
+`saveCounter` Integer, After how many datapoints do you want to save data to disc. 
+Can help speed up the measurement slightly. Default = 10
+
+`breakCondition` Tuple, `('Variable','comparisonOperator',Value)`. Allows to stop a measurement when a certain condition is met.
+ `'Variable'` is compared against `Value` using `'comparisonOperator'`. 
+`'comparisonOperator'` can be `'<'` or `'>'` at the moment. Example: `breakCondition = ('I_SD','>',1E-6)` will end the
+ measurement when `'I_SD'` reaches a value above 1 microampere.
+ 
+`extraInstruments` List of instrument objects, used to keep track of instruments that are not directly used as setter or reader but you still want to see logged in the .log file.
+
+`saveEnable` Boolean, Defines whether saving the data is desired. Default = True. In the current version, `saveEnable = False` also disables plotting.
+
+#### D.2 The `targetArray([targetList],stepSize)` function
+Convenient way of creating a linearly-spaced array of floats of type np.arange(). Easier than concatenating np.arange() or np.linspace().
+
+E.g. `targetArray([0.0,1.0,-1.3,0.0],0.2)` creates an array from 0.0 -> 1.0 -> -1.3 -> 0.0 in 0.2 steps.
+
+`targetList` list of floats. E.g. `[0.0,1.0,-1.3,0.0]`
+
+`stepSize` float. E.g. 0.2. IMPORTANT: If the targets can't be reached with the specified stepsize, e.g., a
+target of 0.3 with a stepsize of 0.2, the last datapoint will overshoot the setpoint.
+ `>>> targetArray([0,0.3],0.2)` returns `array([0.,0.2,0.4])` NOT containing 0.3! If possible, choose stepsizes
+ that match the desired setpoints to avoid this.
+#### D.3 Managing the unique measurement identifiers
+Every measurement performed with the sweep() identifier displayed as
+the plot title that is also part of all saved file names. It consist of a unique prefix + running ID number (int). 
+This assures that no measurement will eve rbe overwritten and that you have a unique reference to each measurement, useful for
+logging data in a database.
+
+How do I access and manipulate this identifier?
+
+You can list all currently defined identifiers using (assuming you imported pyneMeas.utility as U)
+```
+>>> U.listIDs()
+Currently used Prefix/Setup: A  --> ID = 1
+-------------------------------------------- 
+Other available Setups/Prefixes are: #none at the moment
+```
+Currently only one prefix ('A') is defined. It's running ID is 1, which would increment when running a measurement.
+
+'A' is the standard prefix out of the box. You can create more meaningful prefixes like so:
+```
+>>> U.addPrefix('test')
+```
+Checking the identifier with `listIDs()` now shows the new prefix with a ID of 0. However 'A' is still the active prefix.
+This means, when carrying out a measurement, only the ID of 'A' is increased. This can be useful, if more than
+one scientist works on the same setup but wants to get their data indexed separately, e.g., prefixed by initials.
+```
+>>> U.listIDs()
+Currently used Prefix/Setup: A  --> ID = 1
+-------------------------------------------- 
+Other available Setups/Prefixes are: 
+Prefix/Setup: test  --> ID = 0
+```
+We can make 'test' the active setup by typing:
+```
+>>> setCurrentSetup('test')
+Succesfully changed preFix/Setup from: A ---> test
+
+>>> U.listIDs()
+Currently used Prefix/Setup: test  --> ID = 0
+--------------------------------------------- 
+Other available Setups/Prefixes are: 
+Prefix/Setup: A  --> ID = 1
+```
+
+We can directly access the current prefix (string) and ID by with:
+```
+>>> U.readCurrentSetup()
+'test'
+>>> U.readCurrentID()
+0
+```
+This is useful if you want to log the measurement ID together with the dataframe
+output of the sweep function, i.e., if you're not using the data files saved by sweep().
+
+Lastly, you can clear all current identifiers and start with the default values
+```
+U.initID()
+``` 
+however, be aware that this removes all user information and should only be used as a last resort.
 ### Beyond the sweep() function: Using instruments in a custom for-loop
-[Following soon]
+The sweep() function is a convenient way of carrying out many standard electronic measurements, while facilitating live plotting.
+However, in its current form, it cannot cater for more complex measurements, such as multi-parameter sweeps. By accessing instruments directly, you can
+create custom procedures that are more versatile. The fundamental methods to set an instrument's output (e.g. output voltage) 
+or access its current reading (e.g. input current) are `myInstr.set('sourceLevel',outputLevel)` and `myInstrument.read()` methods, respectively.
+
+In the following example, we will replicate a simple (virtual) noise over time measurement, but this should work accordingly 
+for any instrument.
+
+``` 
+import time
+import pyneMeas.Instruments as I
+import pyneMeas.utility as U
+import matplotlib.pyplot as plt
+
+T = I.TimeMeas()
+Noi = I.LinearNoiseGenerator()
+
+points = range(50)
+
+data= {}
+data['noise'] = []
+data['time'] = []
+
+delay = 0.2 # in seconds
+
+for point in points:
+
+    Noi.set('sourceLevel', point) # This does not do anything with this virtual instrument.
+    # Using this on a real instrument would output e.g. a voltage.
+    
+    time.sleep(delay) # wait between measurements
+    
+    data['time'].append(T.read()) # Read the current time and write to list
+    data['noise'].append(Noi.read()) # Reads current (virtual) noise level and write to list
+
+plt.plot(data['time'],data['noise'],'-o')
+plt.xlabel('time');
+plt.ylabel('Noise')
+plt.show()
+
+``` 
+In principle, this for-loop can be a lot more complex and behave differently, 
+depending on readings from various instruments or user input.
