@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyneMeas", # Replace with your own username
-    version="0.0.2",
+    version="0.0.4",
     author="Jakob Seidl",
     author_email="jakob.seidl91@gmail.com",
     description="A simple Python 3 interface for controlling electronic measurement instruments and scripting measurement sweeps.",
